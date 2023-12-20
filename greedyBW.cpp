@@ -11,7 +11,7 @@ using namespace std;
 using namespace cds;
 
 #define PRINT 0
-#define CHECK 1
+#define CHECK 0
 
 typedef struct{
 	int value;
@@ -43,6 +43,7 @@ void createMap();
 vector<ulong*> sets(vector<ulong*> &F, const int e);
 vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l);
 
+int intersectionLength(ulong* A, ulong* B);
 ulong* unionF(vector<ulong*> &F);
 int countSet(ulong* S);
 
@@ -94,15 +95,6 @@ int main(int argc, char** argv) {
     cout << "-------------------------" << endl;
     cout << "Executing classic greedy algorithm..." << endl;
 
-    // cout << par->n << endl;
-    // cout << par->m << endl;
-    // cout << par->nWX << endl;
-    // cout << countSet(par->X) << endl;
-    // cout << par->bF.size() << endl;
-    // printSubset(par->X);
-    // printSubsets(par->bF);
-
-
     auto start_time = chrono::high_resolution_clock::now();
     greedy();
     auto end_time = chrono::high_resolution_clock::now();
@@ -116,30 +108,21 @@ int main(int argc, char** argv) {
     cout << "Duración en segundos: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << endl;
 	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
 
-
-    // cout << par->n << endl;
-    // cout << par->m << endl;
-    // cout << par->nWX << endl;
-    // cout << par->nWF << endl;
-    // printSubset(par->X);
-    // printSubsets(par->bF);
-
     //SOL. NEW GREEDY ALGORITHM
-    // cout << "-------------------------" << endl;
+    cout << "-------------------------" << endl;
 
-    // start_time = chrono::high_resolution_clock::now();
-    // greedy2();
-    // end_time = chrono::high_resolution_clock::now();
+    start_time = chrono::high_resolution_clock::now();
+    greedy2();
+    end_time = chrono::high_resolution_clock::now();
 
-    // if(PRINT) {
-    //     cout << "SOL: " << endl;
-    //     printSubsets(par->greedy2_sol);
-    // }
-    // cout << "Solution Cardinality: " << par->greedy2_sol.size() << endl;
+    if(PRINT) {
+        cout << "SOL: " << endl;
+        printSubsets(par->greedy2_sol);
+    }
+    cout << "Solution Cardinality: " << par->greedy2_sol.size() << endl;
 
-    // cout << "Duración en segundos: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << endl;
-	// cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
-
+    cout << "Duración en segundos: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << endl;
+	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
 
     return 0;
 }
@@ -201,45 +184,30 @@ void readFile(string filename) {
 }
 
 void greedy() {
+    ulong* U = new ulong[par->nWX];
     int i;
-    ulong* U = new ulong(*par->X);
+    for(i=0; i<par->nWX; i++) U[i] = par->X[i];
     vector<ulong*> C;
-    // ulong* maxS = new ulong[par->nWX];
+    ulong* maxS;
     int maxLengthSS = 0;
     int lengthSS;
-    // ulong* interSS = new ulong[par->nWX];
-    // vector<ulong*> Fleft = par->bF;
 
     while( countSet(U) > 0 ) {
-        ulong* maxS = new ulong[par->nWX];
+
         for( ulong* S : par->bF ){
-            if(find(C.begin(), C.end(), S) == C.end()) {
-                ulong* interSS = new ulong[par->nWX];
-                for(i=0; i<par->nWX; i++) interSS[i] = U[i] & S[i];
-                lengthSS = countSet(interSS);
+            if( find(C.begin(), C.end(), S) == C.end()) {
+                lengthSS = intersectionLength(U, S);
                 if(lengthSS > maxLengthSS) {
-                    // cout << lengthSS << endl;
                     maxLengthSS = lengthSS;
-                    for (i = 0; i < par->nWX; i++) maxS[i] = S[i];
+                    maxS = S;
                 }
             }
         }
 
-        // printSubset(U);
-        // printSubset(maxS);
-        // cout << countSet(U) << endl;
-        // cout << C.size() << endl;
-
-        // cout << "maxS = " << countSet(maxS) << endl;
-        // cout << "maxLength = " << maxLengthSS << endl;  
-        // cout << "U = " << countSet(U) << endl;
-
         for(i=0; i<par->nWX; i++) U[i] = U[i] & ~maxS[i];
-        // cout << "U - maxS = " << countSet(U) << endl; 
         C.push_back(maxS);
-        // Fleft.erase(remove(Fleft.begin(), Fleft.end(), maxS), Fleft.end());
-        maxLengthSS = 0;
 
+        maxLengthSS = 0;
     }
 
     par->greedy_sol = C;
@@ -247,9 +215,10 @@ void greedy() {
 
 void greedy2(){
     cout << "Executing new greedy algorithm..." << endl;
-    ulong* U = new ulong(*par->X);
+    ulong* U = new ulong[par->nWX];
+    int i;
+    for(i=0; i<par->nWX; i++) U[i] = par->X[i];
     vector<ulong*> C;
-    int i = 0;
     int j;
     int k = 1;
     vector<ulong*> subF;
@@ -294,43 +263,47 @@ void greedy2(){
 
 }
 
-vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F) {
-    vector<ulong*> C;
-    int n = countSet(U);
-    int m = F.size();
-    int bestLen = m+1;
-    int MaxENotCover = 0;
-    vector<ulong*> bestC;
-    int k;
-
-    ulong* unionC;
-    ulong* xCover = new ulong[par->nWX];
-    ulong* eNotCover = new ulong[par->nWX];
-
-    for(ulong i=1;i<(1<<m);i++){
-        for(ulong j=0;j<m;j++){
-            if(i&(1<<j)){
-                C.push_back(F[j]);
-            }
-        }
-
-        unionC = unionF(C);
-        for(k=0; k<par->nWX; k++) {
-            xCover[k] = unionC[k] | U[k];
-            eNotCover[k] = unionC[k] | X[k];
-        }
-
-        if(countSet(xCover) == n && C.size() <= bestLen && countSet(eNotCover) > MaxENotCover){
-            bestLen = C.size();
-            bestC = C;
-            MaxENotCover = countSet(eNotCover);
-        }
-
-        C.clear();
-    }
-
-    return bestC;
+vector<ulong*> eshaustiveSC(ulong* X, vector<ulong*> &F) {
+    
 }
+
+// vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F) {
+//     vector<ulong*> C;
+//     int n = countSet(U);
+//     int m = F.size();
+//     int bestLen = m+1;
+//     int MaxENotCover = 0;
+//     vector<ulong*> bestC;
+//     int k;
+
+//     ulong* unionC;
+//     ulong* xCover = new ulong[par->nWX];
+//     ulong* eNotCover = new ulong[par->nWX];
+
+//     for(ulong i=1;i<(1<<m);i++){
+//         for(ulong j=0;j<m;j++){
+//             if(i&(1<<j)){
+//                 C.push_back(F[j]);
+//             }
+//         }
+
+//         unionC = unionF(C);
+//         for(k=0; k<par->nWX; k++) {
+//             xCover[k] = unionC[k] | U[k];
+//             eNotCover[k] = unionC[k] | X[k];
+//         }
+
+//         if(countSet(xCover) == n && C.size() <= bestLen && countSet(eNotCover) > MaxENotCover){
+//             bestLen = C.size();
+//             bestC = C;
+//             MaxENotCover = countSet(eNotCover);
+//         }
+
+//         C.clear();
+//     }
+
+//     return bestC;
+// }
 
 void createMap() {
     par->mp = vector<item>(par->n);
@@ -372,6 +345,12 @@ ulong* unionF(vector<ulong*> &F) {
     }
 
     return C;
+}
+
+int intersectionLength(ulong* A, ulong* B) {
+    ulong* interSS = new ulong[par->nWX];
+    for(int i=0; i<par->nWX; i++) interSS[i] = A[i] & B[i];
+    return countSet(interSS);
 }
 
 int countSet(ulong* S){

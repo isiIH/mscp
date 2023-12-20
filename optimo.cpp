@@ -218,7 +218,7 @@ void exhaustive_sol() {
     ulong j;
     int l;
 
-    //Iterar desde c hasta encontrar el óptimo
+    //Iterar desde K hasta encontrar el óptimo
     while(true) {
         for(i=1;i<((ulong)1<<par->m);i++){
             if (__builtin_popcount(i) == k) {

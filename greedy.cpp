@@ -10,7 +10,7 @@
 
 using namespace std;
 
-#define PRINT 1
+#define PRINT 0
 #define CHECK 0
 
 typedef struct{
@@ -63,7 +63,6 @@ int main(int argc, char** argv) {
 
     //SOL. CLASSIC GREEDY ALGORITHM
     cout << "-------------------------" << endl;
-    cout << "Executing classic greedy algorithm..." << endl;
 
     auto start_time = chrono::high_resolution_clock::now();
     vector<vector<int>> sol = greedy(X,F);
@@ -146,6 +145,7 @@ void readFile(string filename, vector<int> &X, vector<vector<int>> &F) {
 }
 
 vector<vector<int>> greedy(vector<int> &X, vector<vector<int>> &F){
+    cout << "Executing classic greedy algorithm..." << endl;
     vector<int> U = X;
     vector<vector<int>> C;
     vector<int> maxS;
