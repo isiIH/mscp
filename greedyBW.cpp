@@ -263,47 +263,43 @@ void greedy2(){
 
 }
 
-vector<ulong*> eshaustiveSC(ulong* X, vector<ulong*> &F) {
-    
+vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F) {
+    vector<ulong*> C;
+    int n = countSet(U);
+    int m = F.size();
+    int bestLen = m+1;
+    int MaxENotCover = 0;
+    vector<ulong*> bestC;
+    int k;
+
+    ulong* unionC;
+    ulong* xCover = new ulong[par->nWX];
+    ulong* eNotCover = new ulong[par->nWX];
+
+    for(ulong i=1;i<(1<<m);i++){
+        for(ulong j=0;j<m;j++){
+            if(i&(1<<j)){
+                C.push_back(F[j]);
+            }
+        }
+
+        unionC = unionF(C);
+        for(k=0; k<par->nWX; k++) {
+            xCover[k] = unionC[k] | U[k];
+            eNotCover[k] = unionC[k] | X[k];
+        }
+
+        if(countSet(xCover) == n && C.size() <= bestLen && countSet(eNotCover) > MaxENotCover){
+            bestLen = C.size();
+            bestC = C;
+            MaxENotCover = countSet(eNotCover);
+        }
+
+        C.clear();
+    }
+
+    return bestC;
 }
-
-// vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F) {
-//     vector<ulong*> C;
-//     int n = countSet(U);
-//     int m = F.size();
-//     int bestLen = m+1;
-//     int MaxENotCover = 0;
-//     vector<ulong*> bestC;
-//     int k;
-
-//     ulong* unionC;
-//     ulong* xCover = new ulong[par->nWX];
-//     ulong* eNotCover = new ulong[par->nWX];
-
-//     for(ulong i=1;i<(1<<m);i++){
-//         for(ulong j=0;j<m;j++){
-//             if(i&(1<<j)){
-//                 C.push_back(F[j]);
-//             }
-//         }
-
-//         unionC = unionF(C);
-//         for(k=0; k<par->nWX; k++) {
-//             xCover[k] = unionC[k] | U[k];
-//             eNotCover[k] = unionC[k] | X[k];
-//         }
-
-//         if(countSet(xCover) == n && C.size() <= bestLen && countSet(eNotCover) > MaxENotCover){
-//             bestLen = C.size();
-//             bestC = C;
-//             MaxENotCover = countSet(eNotCover);
-//         }
-
-//         C.clear();
-//     }
-
-//     return bestC;
-// }
 
 void createMap() {
     par->mp = vector<item>(par->n);
