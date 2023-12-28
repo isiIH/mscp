@@ -16,7 +16,7 @@ using namespace cds;
 typedef struct{
 	int value;
 	int rep;
-	vector<ulong*> subSets;
+	vector<int> subSets;
 } item;
 
 // Structure with all globals parameters program
@@ -34,13 +34,13 @@ typedef struct {
 ParProg* par;
 
 void readFile(string filename);
+void preprocess();
 
 void greedy();
 
 void greedy2();
 vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F);
 void createMap();
-vector<ulong*> sets(vector<ulong*> &F, const int e);
 vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l);
 
 int intersectionLength(ulong* A, ulong* B);
@@ -82,22 +82,15 @@ int main(int argc, char** argv) {
         printSubsets(par->bF);
     }
 
-    createMap();
-    if(CHECK) {
-        for(item mp_item : par->mp) {
-            cout << " - " << mp_item.value << " - " << endl;
-            cout << mp_item.rep << " subsets." << endl;
-            printSubsets(mp_item.subSets);
-        }
-    }
+    auto start_time = chrono::high_resolution_clock::now();
+    preprocess();
+    auto end_time = chrono::high_resolution_clock::now();
+	cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
 
     //SOL. CLASSIC GREEDY ALGORITHM
-    cout << "-------------------------" << endl;
-    cout << "Executing classic greedy algorithm..." << endl;
-
-    auto start_time = chrono::high_resolution_clock::now();
+    start_time = chrono::high_resolution_clock::now();
     greedy();
-    auto end_time = chrono::high_resolution_clock::now();
+    end_time = chrono::high_resolution_clock::now();
 
     if(PRINT) {
         cout << "SOL: " << endl;
@@ -105,12 +98,9 @@ int main(int argc, char** argv) {
     }
     cout << "Solution Cardinality: " << par->greedy_sol.size() << endl;
 
-    cout << "Duración en segundos: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << endl;
-	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
+    cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
 
     //SOL. NEW GREEDY ALGORITHM
-    cout << "-------------------------" << endl;
-
     start_time = chrono::high_resolution_clock::now();
     greedy2();
     end_time = chrono::high_resolution_clock::now();
@@ -121,8 +111,7 @@ int main(int argc, char** argv) {
     }
     cout << "Solution Cardinality: " << par->greedy2_sol.size() << endl;
 
-    cout << "Duración en segundos: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << endl;
-	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
+    cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
 
     return 0;
 }
@@ -131,6 +120,10 @@ void readFile(string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename;
     ifstream file(nametxt.c_str());
+    if(file.fail()){
+        cout << "File not found!" << endl;
+        exit(EXIT_FAILURE);
+    }
     string line,item;
 
     //m & n
@@ -183,11 +176,15 @@ void readFile(string filename) {
     }
 }
 
+
+
 void greedy() {
+    cout << "-------------------------" << endl;
+    cout << "Executing classic greedy algorithm..." << endl;
     ulong* U = new ulong[par->nWX];
     int i;
     for(i=0; i<par->nWX; i++) U[i] = par->X[i];
-    vector<ulong*> C;
+    vector<ulong*> C = par->greedy_sol;
     ulong* maxS;
     int maxLengthSS = 0;
     int lengthSS;
@@ -214,52 +211,59 @@ void greedy() {
 }
 
 void greedy2(){
-    cout << "Executing new greedy algorithm..." << endl;
-    ulong* U = new ulong[par->nWX];
-    int i;
-    for(i=0; i<par->nWX; i++) U[i] = par->X[i];
-    vector<ulong*> C;
-    int j;
-    int k = 1;
-    vector<ulong*> subF;
-    ulong* subU;
-    vector<ulong*> solExhaustive;
+    // cout << "-------------------------" << endl;
+    // cout << "Executing new greedy algorithm..." << endl;
+    // ulong* U = new ulong[par->nWX];
+    // int i;
+    // for(i=0; i<par->nWX; i++) U[i] = par->X[i];
+    // vector<ulong*> C = par->greedy_sol;
+    // int j;
+    // int k = 1;
+    // vector<ulong*> subF;
+    // ulong* subU;
+    // vector<ulong*> solExhaustive;
 
-    while(countSet(U) > 0) {
-        subF = setsOfLength(par->mp,i,k);
+    // while(countSet(U) > 0) {
+    //     subF = setsOfLength(par->mp,i,k);
 
-        if(!subF.empty()){
-            subU = unionF(subF);
-            if(countSet(subU) > countSet(U)) {
-                for(j=0; j<par->nWX; j++) subU[j] = subU[j] & U[j];
-            }
-            if(CHECK) {
-                cout << "----------------------" << endl;
-                cout << "Rep: " << k << endl;
-                cout << "U: " << countSet(U) << endl;
-                cout << "SubU: " << countSet(subU) << endl;
-                cout << "SubF: " << subF.size() << endl;
-            }
+    //     if(!subF.empty()){
+    //         subU = unionF(subF);
+    //         if(countSet(subU) > countSet(U)) {
+    //             for(j=0; j<par->nWX; j++) subU[j] = subU[j] & U[j];
+    //         }
+    //         if(CHECK) {
+    //             cout << "----------------------" << endl;
+    //             cout << "Rep: " << k << endl;
+    //             cout << "U: " << countSet(U) << endl;
+    //             cout << "SubU: " << countSet(subU) << endl;
+    //             cout << "SubF: " << subF.size() << endl;
+    //         }
 
-            solExhaustive = exhaustiveSC(U, subU, subF);
-            if(CHECK) {
-                cout << "Sol. Exhaustiva: " << solExhaustive.size() << endl;
-            }
+    //         solExhaustive = exhaustiveSC(U, subU, subF);
+    //         if(CHECK) {
+    //             cout << "Sol. Exhaustiva: " << solExhaustive.size() << endl;
+    //         }
 
-            for (ulong* S : solExhaustive){
-                for(j=0; j<par->nWX; j++) U[j] = U[j] & ~S[j];
-                for(item &it : par->mp){
-                    if(find(it.subSets.begin(), it.subSets.end(), S) != it.subSets.end()) {
-                        it.subSets.clear();
-                    }
-                }
-                C.push_back(S);
-            }
-        }
-        k++;
-    }
+    //         for (ulong* S : solExhaustive){
+    //             for(j=0; j<par->nWX; j++) U[j] = U[j] & ~S[j];
+    //             for(item &it : par->mp){
+    //                 for (int e : it.subSets){
+    //                     if(par->bF[e] == S) {
+    //                         it.subSets.clear();
+    //                         break;
+    //                     }
+    //                 }
+    //                 // if(find(it.subSets.begin(), it.subSets.end(), S) != it.subSets.end()) {
+    //                 //     it.subSets.clear();
+    //                 // }
+    //             }
+    //             C.push_back(S);
+    //         }
+    //     }
+    //     k++;
+    // }
 
-    par->greedy2_sol = C;
+    // par->greedy2_sol = C;
 
 }
 
@@ -301,27 +305,66 @@ vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F) {
     return bestC;
 }
 
+void preprocess() {
+    cout << "-------------------------" << endl;
+    cout << "Executing PreSetCover..." << endl;
+    // Create a map structure for each element of the universe
+    createMap();
+    if(CHECK) {
+        for(item mp_item : par->mp) {
+            cout << " - " << mp_item.value << " - " << endl;
+            cout << mp_item.rep << " subsets." << endl;
+            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+        }
+    }
+
+    // Add uniques elements
+    int setIndex;
+    ulong* S;
+    while(par->mp[0].rep == 1) {
+        setIndex = par->mp[0].subSets[0];
+        S = par->bF[setIndex];
+
+        // Eliminar subsets del map que no se usen
+        for(int e : par->F[setIndex]) {
+            for (int j=0; j<par->mp.size(); j++) {
+                if (par->mp[j].value == e) {
+                    par->mp.erase(par->mp.begin()+j);
+                }
+            }
+            cleanBit64(par->X,e-1);
+        }
+        par->greedy_sol.push_back(S);
+    }
+
+    cout << "Added " << par->greedy_sol.size() << " subsets " << endl; 
+    cout << "|X| = " << countSet(par->X) << endl;
+
+    if(CHECK) {
+        cout << "----------------------" << endl;
+        for(item mp_item : par->mp) {
+            cout << " - " << mp_item.value << " - " << endl;
+            cout << mp_item.rep << " subsets." << endl;
+            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+        }
+    }
+}
+
 void createMap() {
     par->mp = vector<item>(par->n);
     for(int i=0; i<par->n; i++) {
         par->mp[i].value = i+1;
-        par->mp[i].subSets = sets(par->bF,i);
+        for( int j = 0; j<par->bF.size(); j++ ) if(getBit64(par->bF[j], i)) par->mp[i].subSets.push_back(j);
         par->mp[i].rep = par->mp[i].subSets.size();
     }
     sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 }
 
-vector<ulong*> sets(vector<ulong*> &F, const int e) {
-    vector<ulong*> C;
-    for( ulong* S : F ) if(getBit64(S, e)) C.push_back(S);
-
-    return C;
-}
-
 vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l) {
     vector<ulong*> C;
     while (mp[i].rep == l) {
-        for (ulong* S : mp[i].subSets){
+        for (int index : mp[i].subSets){
+            ulong* S = par->bF[index];
             if(find(C.begin(), C.end(), S) == C.end()) {
                 C.push_back(S);
             }
