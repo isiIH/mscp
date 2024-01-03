@@ -13,52 +13,78 @@ using namespace cds;
 #define PRINT 0
 #define CHECK 0
 
-// struct slong{
-//     ulong* x;
-//     int size;
+struct slong{
+    ulong* x;
+    int size;
 
-//     slong(int size) {
-//         this->size = size;
-//         this->x = new ulong[size];
-//     }
+    slong(int size) {
+        this->size = size;
+        this->x = new ulong[size];
+        for (int i=0; i<size; i++) this->x[i] = 0;
+    }
 
-//     void set(int i, ulong n){
-//         x[i] = n;
-//     }
+    void set(int i, ulong n){
+        x[i] = n;
+    }
 
-//     ulong operator[] (int i) {
-//         return x[i];
-//     }
+    ulong operator[] (int i) {
+        return x[i];
+    }
 
-//     slong operator& (slong n) // slong & slong -> slong
-//     {
-//         slong a(this->size);
-//         for(int i=0; i<size; i++) a.set(i,x[i] & n[i]);
-//         return a;
-//     }
+    void clear() {
+        for (int i=0; i<size; i++) this->x[i] = 0; 
+    }
+
+    void nextComb() {
+        bool carry = true;
+        int i = 0;
+        while(carry) {
+            x[i]++;
+            if(x[i] != 0) carry = false;
+            i++;
+        }
+    }
+
+    slong operator& (slong n) // slong & slong -> slong
+    {
+        slong a(this->size);
+        for(int i=0; i<size; i++) a.set(i,x[i] & n[i]);
+        return a;
+    }
     
-//     template<typename T> slong operator<< (T n) // slong << 500 -> slong
-//     {
-//         int i = (ulong)n / 64;
-//         int j = (ulong)n % 64;
+    // template<typename T> slong operator<< (T n) // slong << 500 -> slong
+    // {
+    //     int i = (ulong)n / 64;
+    //     int j = (ulong)n % 64;
 
-//         ulong num = x[0];
-//         for(int k=0; k<i; k++) x.set(k,0);
-//         x.set(i,num<<j);
-//         return x;
-//     }
+    //     ulong num = x[0];
+    //     for(int k=0; k<i; k++) x.set(k,0);
+    //     x.set(i,num<<j);
+    //     return x;
+    // }
 
-//     template<typename T> slong operator+ (T n) // slong << 500 -> slong
-//     {
-//         if(__builtin_popcount(x[0]) == sizeof(ulong)*8) {}
-//         x.set(0,x[0]++);
-//     }
-// };
+
+
+    // template<typename T> slong operator+ (T n) // slong + n -> slong
+    // {
+    //     ulong i = 0;
+    //     bool carry = true;
+    //     while(carry) {
+    //         if(getBit64(x, i)) {
+    //             cleanBit64(x, i);
+    //             i++;
+    //         } else {
+    //             carry = false;
+    //             setBit64(x,i);
+    //         }
+    //     }
+    // }
+};
 
 typedef struct{
 	int value;
 	int rep;
-	vector<ulong*> subSets;
+	vector<int> subSets;
 } item;
 
 // Structure with all globals parameters program
@@ -75,13 +101,16 @@ typedef struct {
 ParProg* par;
 
 void readFile(string filename);
+void preprocess();
+void createMap();
 
 void exhaustive_sol();
 
 ulong* unionF(vector<ulong*> &F);
-int countSet(ulong* S);
+int countSet(ulong* S, int size=par->nWX);
+vector<ulong*> getComb(ulong* comb, vector<ulong*> F);
 
-void printSubset(ulong* C);
+void printSubset(ulong *S, int size = par->nWX);
 void printSubsets(vector<ulong*> C);
 
 int main(int argc, char** argv) {
@@ -116,14 +145,19 @@ int main(int argc, char** argv) {
         printSubsets(par->bF);
     }
 
+    auto start_time = chrono::high_resolution_clock::now();
+    preprocess();
+    auto end_time = chrono::high_resolution_clock::now();
+	cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
+
+
     //SOL. CLASSIC GREEDY ALGORITHM
     cout << "-------------------------" << endl;
     cout << "Executing new exhaustive algorithm..." << endl;
 
-
-    auto start_time = chrono::high_resolution_clock::now();
+    start_time = chrono::high_resolution_clock::now();
     exhaustive_sol();
-    auto end_time = chrono::high_resolution_clock::now();
+    end_time = chrono::high_resolution_clock::now();
 
     if(PRINT) {
         cout << "SOL: " << endl;
@@ -152,9 +186,6 @@ void readFile(string filename) {
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
     par->X = new ulong[par->nWX];
-
-    par->nWF = (par->m)/(sizeof(ulong)*8);
-    if ((par->m)%(sizeof(ulong)*8)>0) par->nWF++;
 
     //Costs
     int i = 0;
@@ -208,49 +239,103 @@ void exhaustive_sol() {
         k++;
     }
 
-    cout << "K = " << k << endl;
-    cout << "MinSS = " << minSS << endl;
+    // cout << "K = " << k << endl;
+    // cout << "MinSS = " << minSS << endl;
 
     ulong* eCover = new ulong[par->nWX];
     ulong* unionC;
 
     ulong i;
-    ulong j;
-    int l;
+    int j;
 
     //Iterar desde K hasta encontrar el óptimo
+
+    slong setsComb = slong(par->nWF);
+    vector<ulong*> C;
     while(true) {
-        for(i=1;i<((ulong)1<<par->m);i++){
-            if (__builtin_popcount(i) == k) {
-                vector<ulong*> C;
-                for(j=0;j<par->m;j++){
-                    if(i&((ulong)1<<j)){
-                        // cout << j << endl;
-                        C.push_back(Fsort[j]);
-                    }
-                }
-
-                // cout << "----------------" << endl;
+        cout << "K = " << k << endl;
+        while(countSet(setsComb.x, par->nWF) < par->m) {
+            setsComb.nextComb();
+            if( countSet(setsComb.x, par->nWF) == k ) {
+                // printSubset(setsComb.x, par->nWF);
+                C = getComb(setsComb.x,Fsort);
                 // printSubsets(C);
-                // cout << "----------------" << endl;
-
-                // cout << C.size() << endl;
+                // cout << "----------------------" << endl;
 
                 unionC = unionF(C);
-                for(l=0; l<par->nWX; l++) eCover[l] = unionC[l] & par->X[l];
+                for(j=0; j<par->nWX; j++) eCover[j] = unionC[j] & par->X[j];
                 
                 if(countSet(eCover) == par->n){
-                    par->exh_sol = C;
+                    cout << "Solution found with K = " << k << endl;
+                    for(ulong* S : C) par->exh_sol.push_back(S);
                     return;
                 }
-
                 C.clear();
             }
         }
 
         //No se encuentra una solución de tamaño k, aumentamos en 1
         k++;
+        setsComb.clear();
     }
+}
+
+void preprocess() {
+    cout << "-------------------------" << endl;
+    cout << "Executing PreSetCover..." << endl;
+    // Create a map structure for each element of the universe
+    createMap();
+    if(CHECK) {
+        for(item mp_item : par->mp) {
+            cout << " - " << mp_item.value << " - " << endl;
+            cout << mp_item.rep << " subsets." << endl;
+            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+        }
+    }
+
+    // Add uniques elements
+    int setIndex;
+    ulong* S;
+    while(par->mp[0].rep == 1) {
+        setIndex = par->mp[0].subSets[0];
+        S = par->bF[setIndex];
+
+        // Eliminar subsets del map que no se usen
+        for(int e : par->F[setIndex]) {
+            for (int j=0; j<par->mp.size(); j++) {
+                if (par->mp[j].value == e) {
+                    par->mp.erase(par->mp.begin()+j);
+                }
+            }
+            cleanBit64(par->X,e-1);
+        }
+        par->exh_sol.push_back(S);
+    }
+
+    for(ulong* S : par->exh_sol) {
+        par->bF.erase(find(par->bF.begin(), par->bF.end(), S));
+        par->m--;
+    }
+
+    cout << "Added " << par->exh_sol.size() << " subsets " << endl; 
+    par->n = countSet(par->X);
+    cout << "|X| = " << par->n << endl;
+    cout << "|F| = " << par->m << endl;
+
+    par->nWF = (par->m)/(sizeof(ulong)*8);
+    if ((par->m)%(sizeof(ulong)*8)>0) par->nWF++;
+
+    cout << "nWF = " << par->nWF << endl;
+}
+
+void createMap() {
+    par->mp = vector<item>(par->n);
+    for(int i=0; i<par->n; i++) {
+        par->mp[i].value = i+1;
+        for( int j = 0; j<par->bF.size(); j++ ) if(getBit64(par->bF[j], i)) par->mp[i].subSets.push_back(j);
+        par->mp[i].rep = par->mp[i].subSets.size();
+    }
+    sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 }
 
 ulong* unionF(vector<ulong*> &F) {
@@ -264,9 +349,9 @@ ulong* unionF(vector<ulong*> &F) {
     return C;
 }
 
-int countSet(ulong* S){
+int countSet(ulong* S, int size){
     int cont = 0;
-    for(int i=0; i<par->nWX; i++) {
+    for(int i=0; i<size; i++) {
         uint cnt = 0;
         ulong mask = 0x8000000000000000;
 
@@ -279,12 +364,28 @@ int countSet(ulong* S){
     return cont;
 }
 
-void printSubset(ulong *S) {
-    for (int i=0; i<par->nWX; i++){
+void printSubset(ulong *S, int size) {
+    for (int i=0; i<size; i++){
         printBitsUlong(S[i]);
         cout << " - ";
     }
     cout << endl;
+}
+
+vector<ulong*> getComb(ulong* comb, vector<ulong*> F) {
+    vector<ulong*> C;
+
+    for(int i=0; i<par->nWF; i++) {
+        uint cnt = 0;
+        ulong mask = 1;
+
+        for(cnt=0;cnt<W64;++cnt){
+            if((comb[i] & mask) != 0) C.push_back(F[cnt]);
+            mask <<= 1;
+        }
+    }
+
+    return C;
 }
 
 void printSubsets(vector<ulong*> C) {

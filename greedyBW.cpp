@@ -11,7 +11,7 @@ using namespace std;
 using namespace cds;
 
 #define PRINT 0
-#define CHECK 0
+#define CHECK 1
 
 typedef struct{
 	int value;
@@ -37,9 +37,8 @@ void readFile(string filename);
 void preprocess();
 
 void greedy();
-
 void greedy2();
-vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F);
+void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize);
 void createMap();
 vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l);
 
@@ -211,98 +210,96 @@ void greedy() {
 }
 
 void greedy2(){
-    // cout << "-------------------------" << endl;
-    // cout << "Executing new greedy algorithm..." << endl;
-    // ulong* U = new ulong[par->nWX];
-    // int i;
-    // for(i=0; i<par->nWX; i++) U[i] = par->X[i];
-    // vector<ulong*> C = par->greedy_sol;
-    // int j;
-    // int k = 1;
-    // vector<ulong*> subF;
-    // ulong* subU;
-    // vector<ulong*> solExhaustive;
+    cout << "-------------------------" << endl;
+    cout << "Executing new greedy algorithm..." << endl;
+    ulong* U = new ulong[par->nWX];
+    int i;
+    for(i=0; i<par->nWX; i++) U[i] = par->X[i];
+    int j;
+    int k = par->mp[0].rep;
+    i = 0;
+    vector<ulong*> subF;
+    ulong* subU;
+    int minSetSize;
+    vector<ulong*> chosenSets;
+    vector<ulong*> minSetCover;
 
     // while(countSet(U) > 0) {
-    //     subF = setsOfLength(par->mp,i,k);
+        subF = setsOfLength(par->mp,i,k);
 
-    //     if(!subF.empty()){
-    //         subU = unionF(subF);
-    //         if(countSet(subU) > countSet(U)) {
-    //             for(j=0; j<par->nWX; j++) subU[j] = subU[j] & U[j];
-    //         }
-    //         if(CHECK) {
-    //             cout << "----------------------" << endl;
-    //             cout << "Rep: " << k << endl;
-    //             cout << "U: " << countSet(U) << endl;
-    //             cout << "SubU: " << countSet(subU) << endl;
-    //             cout << "SubF: " << subF.size() << endl;
-    //         }
+        if(!subF.empty()){
+            subU = unionF(subF);
+            if(countSet(subU) > countSet(U)) {
+                for(j=0; j<par->nWX; j++) subU[j] = subU[j] & U[j];
+            }
+            if(CHECK) {
+                cout << "----------------------" << endl;
+                cout << "Rep: " << k << endl;
+                cout << "U: " << countSet(U) << endl;
+                cout << "SubU: " << countSet(subU) << endl;
+                cout << "SubF: " << subF.size() << endl;
+            }
 
-    //         solExhaustive = exhaustiveSC(U, subU, subF);
-    //         if(CHECK) {
-    //             cout << "Sol. Exhaustiva: " << solExhaustive.size() << endl;
-    //         }
+            minSetSize = par->m+1;
+            optimalSol(0, subU, subF, chosenSets, minSetCover, minSetSize);
+            if(CHECK) {
+                cout << "Sol. Exhaustiva: " << minSetCover.size() << endl;
+            }
 
-    //         for (ulong* S : solExhaustive){
-    //             for(j=0; j<par->nWX; j++) U[j] = U[j] & ~S[j];
-    //             for(item &it : par->mp){
-    //                 for (int e : it.subSets){
-    //                     if(par->bF[e] == S) {
-    //                         it.subSets.clear();
-    //                         break;
-    //                     }
-    //                 }
-    //                 // if(find(it.subSets.begin(), it.subSets.end(), S) != it.subSets.end()) {
-    //                 //     it.subSets.clear();
-    //                 // }
-    //             }
-    //             C.push_back(S);
-    //         }
-    //     }
-    //     k++;
+            for (ulong* S : minSetCover){
+                for(j=0; j<par->nWX; j++) U[j] = U[j] & ~S[j];
+                for(item &it : par->mp){
+                    for (int e : it.subSets){
+                        if(par->bF[e] == S) {
+                            it.subSets.clear();
+                            break;
+                        }
+                    }
+                }
+                par->greedy2_sol.push_back(S);
+            }
+
+            chosenSets.clear();
+            minSetCover.clear();
+        }
+        k++;
     // }
-
-    // par->greedy2_sol = C;
 
 }
 
-vector<ulong*> exhaustiveSC(ulong* X, ulong *U, vector<ulong*> &F) {
-    vector<ulong*> C;
-    int n = countSet(U);
-    int m = F.size();
-    int bestLen = m+1;
-    int MaxENotCover = 0;
-    vector<ulong*> bestC;
-    int k;
-
-    ulong* unionC;
-    ulong* xCover = new ulong[par->nWX];
-    ulong* eNotCover = new ulong[par->nWX];
-
-    for(ulong i=1;i<(1<<m);i++){
-        for(ulong j=0;j<m;j++){
-            if(i&(1<<j)){
-                C.push_back(F[j]);
+void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize) {
+    if(!chosenSets.empty()) {
+        cout << chosenSets.size() << endl;
+        printSubsets(chosenSets);
+        ulong* coveredElements = unionF(chosenSets);
+        ulong* xCover = new ulong[par->nWX]; 
+        for(int k=0; k<par->nWX; k++) {
+            xCover[k] = coveredElements[k] & X[k];
+        }
+        if(countSet(xCover) == countSet(X)) {
+            if(chosenSets.size() < minSetSize) {
+                minSetSize = chosenSets.size();
+                minSetCover = chosenSets;
             }
-        }
-
-        unionC = unionF(C);
-        for(k=0; k<par->nWX; k++) {
-            xCover[k] = unionC[k] | U[k];
-            eNotCover[k] = unionC[k] | X[k];
-        }
-
-        if(countSet(xCover) == n && C.size() <= bestLen && countSet(eNotCover) > MaxENotCover){
-            bestLen = C.size();
-            bestC = C;
-            MaxENotCover = countSet(eNotCover);
-        }
-
-        C.clear();
+            delete[] coveredElements;
+            delete[] xCover;
+            return;
+        } 
+        delete[] coveredElements;
+        delete[] xCover;
     }
 
-    return bestC;
+    if(i == F.size() || chosenSets.size() >= minSetSize-1) {
+        return;
+    }
+
+    //No incluir subconjunto
+    optimalSol(i+1, X, F, chosenSets, minSetCover, minSetSize);
+
+    //Incluir subconjunto
+    chosenSets.push_back(F[i]);
+    optimalSol(i+1, X, F, chosenSets, minSetCover, minSetSize);
+    chosenSets.pop_back();
 }
 
 void preprocess() {
@@ -335,6 +332,7 @@ void preprocess() {
             cleanBit64(par->X,e-1);
         }
         par->greedy_sol.push_back(S);
+        par->greedy2_sol.push_back(S);
     }
 
     cout << "Added " << par->greedy_sol.size() << " subsets " << endl; 
@@ -362,7 +360,7 @@ void createMap() {
 
 vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l) {
     vector<ulong*> C;
-    while (mp[i].rep == l) {
+    while (i < mp.size() && mp[i].rep == l) {
         for (int index : mp[i].subSets){
             ulong* S = par->bF[index];
             if(find(C.begin(), C.end(), S) == C.end()) {
@@ -378,6 +376,7 @@ vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l) {
 ulong* unionF(vector<ulong*> &F) {
     int i,j;
     ulong* C = new ulong[par->nWX];
+    for(j=0; j<par->nWX; j++) C[j] = 0;
 
     for(i=0; i<F.size(); i++) {
         for(j=0; j<par->nWX; j++) C[j] = C[j] | F[i][j];
