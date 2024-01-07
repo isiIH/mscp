@@ -10,8 +10,8 @@
 using namespace std;
 using namespace cds;
 
-#define PRINT 0
-#define CHECK 1
+#define PRINT 1
+#define CHECK 0
 
 typedef struct{
 	int value;
@@ -38,7 +38,7 @@ void preprocess();
 
 void greedy();
 void greedy2();
-void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize);
+void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> &chosenSets, vector<ulong*> &minSetCover, int &minSetSize);
 void createMap();
 vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l);
 
@@ -224,7 +224,7 @@ void greedy2(){
     vector<ulong*> chosenSets;
     vector<ulong*> minSetCover;
 
-    // while(countSet(U) > 0) {
+    while(countSet(U) > 0) {
         subF = setsOfLength(par->mp,i,k);
 
         if(!subF.empty()){
@@ -263,21 +263,25 @@ void greedy2(){
             minSetCover.clear();
         }
         k++;
-    // }
+    }
 
 }
 
-void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize) {
+void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> &chosenSets, vector<ulong*> &minSetCover, int &minSetSize) {
+
+    //Si no hay una mejor solución por esta rama
+    if (chosenSets.size() >= minSetSize) return;
+
     if(!chosenSets.empty()) {
-        cout << chosenSets.size() << endl;
-        printSubsets(chosenSets);
+        if (PRINT) cout << "|chosenSets| = " << chosenSets.size() << endl;
+
+        //Verificar si se cubre el universo
         ulong* coveredElements = unionF(chosenSets);
         ulong* xCover = new ulong[par->nWX]; 
-        for(int k=0; k<par->nWX; k++) {
-            xCover[k] = coveredElements[k] & X[k];
-        }
+        for(int k=0; k<par->nWX; k++) xCover[k] = coveredElements[k] & X[k];
         if(countSet(xCover) == countSet(X)) {
             if(chosenSets.size() < minSetSize) {
+                if(PRINT) cout << "NEW MIN = " << chosenSets.size() << endl;
                 minSetSize = chosenSets.size();
                 minSetCover = chosenSets;
             }
@@ -289,17 +293,16 @@ void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> chosenSets, v
         delete[] xCover;
     }
 
-    if(i == F.size() || chosenSets.size() >= minSetSize-1) {
-        return;
+    //Si ya no hay más conjuntos que agregar
+    if(i == F.size()) return;
+
+    for (int j = i; j<F.size(); j++) {
+        //Incluir el subconjunto
+        chosenSets.push_back(F[j]);
+        optimalSol(j+1, X, F, chosenSets, minSetCover, minSetSize);
+        //No incluir el subconjunto
+        chosenSets.pop_back();
     }
-
-    //No incluir subconjunto
-    optimalSol(i+1, X, F, chosenSets, minSetCover, minSetSize);
-
-    //Incluir subconjunto
-    chosenSets.push_back(F[i]);
-    optimalSol(i+1, X, F, chosenSets, minSetCover, minSetSize);
-    chosenSets.pop_back();
 }
 
 void preprocess() {
