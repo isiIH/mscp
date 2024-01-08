@@ -10,7 +10,7 @@
 using namespace std;
 using namespace cds;
 
-#define PRINT 0
+#define PRINT 1
 #define CHECK 0
 
 struct slong{
@@ -103,12 +103,13 @@ ParProg* par;
 void readFile(string filename);
 void preprocess();
 void createMap();
+bool kSol(int i, int k, vector<ulong*> chosenSets);
 
 void exhaustive_sol();
 
 ulong* unionF(vector<ulong*> &F);
 int countSet(ulong* S, int size=par->nWX);
-vector<ulong*> getComb(ulong* comb, vector<ulong*> F);
+// vector<ulong*> getComb(ulong* comb, vector<ulong*> F);
 
 void printSubset(ulong *S, int size = par->nWX);
 void printSubsets(vector<ulong*> C);
@@ -152,14 +153,11 @@ int main(int argc, char** argv) {
 
 
     //SOL. CLASSIC GREEDY ALGORITHM
-    cout << "-------------------------" << endl;
-    cout << "Executing new exhaustive algorithm..." << endl;
-
     start_time = chrono::high_resolution_clock::now();
     exhaustive_sol();
     end_time = chrono::high_resolution_clock::now();
 
-    if(PRINT) {
+    if(CHECK) {
         cout << "SOL: " << endl;
         printSubsets(par->exh_sol);
     }
@@ -175,6 +173,10 @@ void readFile(string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename;
     ifstream file(nametxt.c_str());
+    if(file.fail()){
+        cout << "File not found!" << endl;
+        exit(EXIT_FAILURE);
+    }
     string line,item;
 
     //m & n
@@ -228,6 +230,9 @@ void readFile(string filename) {
 }
 
 void exhaustive_sol() {
+    cout << "-------------------------------------" << endl;
+    cout << "Executing new exhaustive algorithm..." << endl;
+    cout << "-------------------------------------" << endl;
     // Calcular mínimo número de subconjuntos
     vector<ulong*> Fsort = par->bF;
     sort(Fsort.begin(), Fsort.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
@@ -244,45 +249,80 @@ void exhaustive_sol() {
 
     ulong* eCover = new ulong[par->nWX];
     ulong* unionC;
+    vector<ulong*> chosenSets;
 
     ulong i;
     int j;
 
     //Iterar desde K hasta encontrar el óptimo
-
-    slong setsComb = slong(par->nWF);
-    vector<ulong*> C;
+    
+    // slong setsComb = slong(par->nWF);
+    // vector<ulong*> C;
     while(true) {
-        cout << "K = " << k << endl;
-        while(countSet(setsComb.x, par->nWF) < par->m) {
-            setsComb.nextComb();
-            if( countSet(setsComb.x, par->nWF) == k ) {
-                // printSubset(setsComb.x, par->nWF);
-                C = getComb(setsComb.x,Fsort);
-                // printSubsets(C);
-                // cout << "----------------------" << endl;
+        if(PRINT) cout << "K = " << k << endl;
+        if ( kSol(0, k, chosenSets) ) return;
+        // while(countSet(setsComb.x, par->nWF) < par->m) {
+        //     setsComb.nextComb();
+        //     if( countSet(setsComb.x, par->nWF) == k ) {
+        //         // printSubset(setsComb.x, par->nWF);
+        //         C = getComb(setsComb.x,Fsort);
+        //         // printSubsets(C);
+        //         // cout << "----------------------" << endl;
 
-                unionC = unionF(C);
-                for(j=0; j<par->nWX; j++) eCover[j] = unionC[j] & par->X[j];
+        //         unionC = unionF(C);
+        //         for(j=0; j<par->nWX; j++) eCover[j] = unionC[j] & par->X[j];
                 
-                if(countSet(eCover) == par->n){
-                    cout << "Solution found with K = " << k << endl;
-                    for(ulong* S : C) par->exh_sol.push_back(S);
-                    return;
-                }
-                C.clear();
-            }
-        }
+        //         if(countSet(eCover) == par->n){
+        //             cout << "Solution found with K = " << k << endl;
+        //             for(ulong* S : C) par->exh_sol.push_back(S);
+        //             return;
+        //         }
+        //         C.clear();
+        //     }
+        // }
 
         //No se encuentra una solución de tamaño k, aumentamos en 1
         k++;
-        setsComb.clear();
+        // setsComb.clear();
     }
 }
 
+bool kSol(int index, int k, vector<ulong*> chosenSets) {
+    //|chosenSets| = k 
+    if(k == 0) {
+        //Verificar si se cubre el universo
+        ulong* coveredElements = unionF(chosenSets);
+        ulong* xCover = new ulong[par->nWX]; 
+        for(int i=0; i<par->nWX; i++) xCover[i] = coveredElements[i] & par->X[i];
+        if(countSet(xCover) == countSet(par->X)) {
+            cout << "Solution found with K = " << chosenSets.size() << endl;
+            for(ulong* S : chosenSets) par->exh_sol.push_back(S);
+            delete[] coveredElements;
+            delete[] xCover;
+            return true;
+        } 
+        delete[] coveredElements;
+        delete[] xCover;
+        return false;
+    }
+
+    for (int j = index; j<par->bF.size()-k+1; j++) {
+        //Incluir el subconjunto
+        chosenSets.push_back(par->bF[j]);
+
+        if ( kSol(j+1, k-1, chosenSets) ) return true;
+        
+        //No incluir el subconjunto
+        chosenSets.pop_back();
+    }
+
+    return false;
+}
+
 void preprocess() {
-    cout << "-------------------------" << endl;
+    cout << "------------------------" << endl;
     cout << "Executing PreSetCover..." << endl;
+    cout << "------------------------" << endl;
     // Create a map structure for each element of the universe
     createMap();
     if(CHECK) {
@@ -322,10 +362,10 @@ void preprocess() {
     cout << "|X| = " << par->n << endl;
     cout << "|F| = " << par->m << endl;
 
-    par->nWF = (par->m)/(sizeof(ulong)*8);
-    if ((par->m)%(sizeof(ulong)*8)>0) par->nWF++;
+    // par->nWF = (par->m)/(sizeof(ulong)*8);
+    // if ((par->m)%(sizeof(ulong)*8)>0) par->nWF++;
 
-    cout << "nWF = " << par->nWF << endl;
+    // cout << "nWF = " << par->nWF << endl;
 }
 
 void createMap() {
@@ -341,6 +381,7 @@ void createMap() {
 ulong* unionF(vector<ulong*> &F) {
     int i,j;
     ulong* C = new ulong[par->nWX];
+    for(j=0; j<par->nWX; j++) C[j] = 0;
 
     for(i=0; i<F.size(); i++) {
         for(j=0; j<par->nWX; j++) C[j] = C[j] | F[i][j];
@@ -372,26 +413,24 @@ void printSubset(ulong *S, int size) {
     cout << endl;
 }
 
-vector<ulong*> getComb(ulong* comb, vector<ulong*> F) {
-    vector<ulong*> C;
+// vector<ulong*> getComb(ulong* comb, vector<ulong*> F) {
+//     vector<ulong*> C;
 
-    for(int i=0; i<par->nWF; i++) {
-        uint cnt = 0;
-        ulong mask = 1;
+//     for(int i=0; i<par->nWF; i++) {
+//         uint cnt = 0;
+//         ulong mask = 1;
 
-        for(cnt=0;cnt<W64;++cnt){
-            if((comb[i] & mask) != 0) C.push_back(F[cnt]);
-            mask <<= 1;
-        }
-    }
+//         for(cnt=0;cnt<W64;++cnt){
+//             if((comb[i] & mask) != 0) C.push_back(F[cnt]);
+//             mask <<= 1;
+//         }
+//     }
 
-    return C;
-}
+//     return C;
+// }
 
 void printSubsets(vector<ulong*> C) {
     for(ulong* S : C) {
         printSubset(S);
     }
 }
-
-//CAMBIAR SOL OPTIMA POR OPCION RECURSIVA (VER COMO DETENER RECURSIÓN)
