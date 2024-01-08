@@ -393,3 +393,5 @@ void printSubsets(vector<ulong*> C) {
         printSubset(S);
     }
 }
+
+//CAMBIAR SOL OPTIMA POR OPCION RECURSIVA (VER COMO DETENER RECURSIÓN)

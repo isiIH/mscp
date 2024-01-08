@@ -38,7 +38,7 @@ void preprocess();
 
 void greedy();
 void greedy2();
-void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> &chosenSets, vector<ulong*> &minSetCover, int &minSetSize);
+void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize);
 void createMap();
 vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l);
 
@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     greedy();
     end_time = chrono::high_resolution_clock::now();
 
-    if(PRINT) {
+    if(CHECK) {
         cout << "SOL: " << endl;
         printSubsets(par->greedy_sol);
     }
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
     greedy2();
     end_time = chrono::high_resolution_clock::now();
 
-    if(PRINT) {
+    if(CHECK) {
         cout << "SOL: " << endl;
         printSubsets(par->greedy2_sol);
     }
@@ -178,8 +178,9 @@ void readFile(string filename) {
 
 
 void greedy() {
-    cout << "-------------------------" << endl;
+    cout << "-------------------------------------" << endl;
     cout << "Executing classic greedy algorithm..." << endl;
+    cout << "-------------------------------------" << endl;
     ulong* U = new ulong[par->nWX];
     int i;
     for(i=0; i<par->nWX; i++) U[i] = par->X[i];
@@ -210,8 +211,10 @@ void greedy() {
 }
 
 void greedy2(){
-    cout << "-------------------------" << endl;
+    cout << "---------------------------------" << endl;
     cout << "Executing new greedy algorithm..." << endl;
+    cout << "---------------------------------" << endl;
+
     ulong* U = new ulong[par->nWX];
     int i;
     for(i=0; i<par->nWX; i++) U[i] = par->X[i];
@@ -232,8 +235,7 @@ void greedy2(){
             if(countSet(subU) > countSet(U)) {
                 for(j=0; j<par->nWX; j++) subU[j] = subU[j] & U[j];
             }
-            if(CHECK) {
-                cout << "----------------------" << endl;
+            if(PRINT) {
                 cout << "Rep: " << k << endl;
                 cout << "U: " << countSet(U) << endl;
                 cout << "SubU: " << countSet(subU) << endl;
@@ -242,8 +244,9 @@ void greedy2(){
 
             minSetSize = par->m+1;
             optimalSol(0, subU, subF, chosenSets, minSetCover, minSetSize);
-            if(CHECK) {
+            if(PRINT) {
                 cout << "Sol. Exhaustiva: " << minSetCover.size() << endl;
+                cout << "----------------------" << endl;
             }
 
             for (ulong* S : minSetCover){
@@ -267,13 +270,15 @@ void greedy2(){
 
 }
 
-void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> &chosenSets, vector<ulong*> &minSetCover, int &minSetSize) {
+void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize) {
+    //Si ya no hay más conjuntos que agregar o si no hay una mejor solución por esta rama
+    if(i == F.size() || chosenSets.size() >= minSetSize-1) return;
 
-    //Si no hay una mejor solución por esta rama
-    if (chosenSets.size() >= minSetSize) return;
+    for (int j = i; j<F.size(); j++) {
+        //Incluir el subconjunto
+        chosenSets.push_back(F[j]);
 
-    if(!chosenSets.empty()) {
-        if (PRINT) cout << "|chosenSets| = " << chosenSets.size() << endl;
+        if(CHECK) cout << "|chosenSets| = " << chosenSets.size() << endl;
 
         //Verificar si se cubre el universo
         ulong* coveredElements = unionF(chosenSets);
@@ -291,23 +296,18 @@ void optimalSol(int i, ulong* X, vector<ulong*> &F, vector<ulong*> &chosenSets, 
         } 
         delete[] coveredElements;
         delete[] xCover;
-    }
 
-    //Si ya no hay más conjuntos que agregar
-    if(i == F.size()) return;
-
-    for (int j = i; j<F.size(); j++) {
-        //Incluir el subconjunto
-        chosenSets.push_back(F[j]);
         optimalSol(j+1, X, F, chosenSets, minSetCover, minSetSize);
+        
         //No incluir el subconjunto
         chosenSets.pop_back();
     }
 }
 
 void preprocess() {
-    cout << "-------------------------" << endl;
+    cout << "------------------------" << endl;
     cout << "Executing PreSetCover..." << endl;
+    cout << "------------------------" << endl;
     // Create a map structure for each element of the universe
     createMap();
     if(CHECK) {
@@ -372,6 +372,8 @@ vector<ulong*> setsOfLength(vector<item> &mp, int &i, const int l) {
         }
         i++;
     }
+    
+    sort(C.begin(), C.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
 
     return C;
 }
@@ -423,14 +425,13 @@ void printSubsets(vector<ulong*> C) {
     }
 }
 
-// /*
-// PROYECTO #1: Adaptar solución greedy exhaustiva a bitwise operator
+/*
+PROYECTO #1: Adaptar solución greedy exhaustiva a bitwise operator
 
-// probar con n = 64 primero, luego agregar más celdas
+probar con n = 64 primero, luego agregar más celdas
 
-// PROYECTO #2: Óptimo que parte de la mímina cantidad posible de subconjuntos
-// min <= Opt <= Greedy
-// hacer secuencial, empezando desde el mínimo (no es necesario hacer greedy)
-// aplicar bitwise
-// */
-
+PROYECTO #2: Óptimo que parte de la mímina cantidad posible de subconjuntos
+min <= Opt <= Greedy
+hacer secuencial, empezando desde el mínimo (no es necesario hacer greedy)
+aplicar bitwise
+*/
