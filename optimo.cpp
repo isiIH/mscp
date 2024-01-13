@@ -13,74 +13,6 @@ using namespace cds;
 #define PRINT 1
 #define CHECK 0
 
-struct slong{
-    ulong* x;
-    int size;
-
-    slong(int size) {
-        this->size = size;
-        this->x = new ulong[size];
-        for (int i=0; i<size; i++) this->x[i] = 0;
-    }
-
-    void set(int i, ulong n){
-        x[i] = n;
-    }
-
-    ulong operator[] (int i) {
-        return x[i];
-    }
-
-    void clear() {
-        for (int i=0; i<size; i++) this->x[i] = 0; 
-    }
-
-    void nextComb() {
-        bool carry = true;
-        int i = 0;
-        while(carry) {
-            x[i]++;
-            if(x[i] != 0) carry = false;
-            i++;
-        }
-    }
-
-    slong operator& (slong n) // slong & slong -> slong
-    {
-        slong a(this->size);
-        for(int i=0; i<size; i++) a.set(i,x[i] & n[i]);
-        return a;
-    }
-    
-    // template<typename T> slong operator<< (T n) // slong << 500 -> slong
-    // {
-    //     int i = (ulong)n / 64;
-    //     int j = (ulong)n % 64;
-
-    //     ulong num = x[0];
-    //     for(int k=0; k<i; k++) x.set(k,0);
-    //     x.set(i,num<<j);
-    //     return x;
-    // }
-
-
-
-    // template<typename T> slong operator+ (T n) // slong + n -> slong
-    // {
-    //     ulong i = 0;
-    //     bool carry = true;
-    //     while(carry) {
-    //         if(getBit64(x, i)) {
-    //             cleanBit64(x, i);
-    //             i++;
-    //         } else {
-    //             carry = false;
-    //             setBit64(x,i);
-    //         }
-    //     }
-    // }
-};
-
 typedef struct{
 	int value;
 	int rep;
@@ -89,10 +21,13 @@ typedef struct{
 
 // Structure with all globals parameters program
 typedef struct {
+    int search;
 	ulong* X;
 	vector<vector<int>> F;
     vector<ulong*> bF;
     vector<item> mp;
+    vector<ulong*> unique_elements;
+    vector<ulong*> greedy_sol;
     vector<ulong*> exh_sol;
     ulong sizeF, sizeNF;
 	ulong n, m, nWX, nWF;
@@ -104,24 +39,31 @@ void readFile(string filename);
 void preprocess();
 void createMap();
 bool kSol(int i, int k, vector<ulong*> chosenSets);
+void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets);
 
 void exhaustive_sol();
+void greedy();
 
 ulong* unionF(vector<ulong*> &F);
 int countSet(ulong* S, int size=par->nWX);
-// vector<ulong*> getComb(ulong* comb, vector<ulong*> F);
+int intersectionLength(ulong* A, ulong* B);
 
 void printSubset(ulong *S, int size = par->nWX);
 void printSubsets(vector<ulong*> C);
 
 int main(int argc, char** argv) {
 
-    if(argc !=2){
-		cout << "./greedy <filename>" << endl;
+    if(argc !=3){
+		cout << "./opt <filename> <search>" << endl;
 		exit(EXIT_FAILURE);
 	}
 
     par = new ParProg();
+    par->search = atoi(argv[2]);
+    if(par->search < 0 || par->search > 2){
+        cout << "Invalid Search Type!\n0: Secuential Search\n1: Binary Search\n2: Exponential Search" << endl;
+        exit(EXIT_FAILURE);
+    }
 
     readFile(argv[1]);
 
@@ -151,8 +93,21 @@ int main(int argc, char** argv) {
     auto end_time = chrono::high_resolution_clock::now();
 	cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
 
-
     //SOL. CLASSIC GREEDY ALGORITHM
+    start_time = chrono::high_resolution_clock::now();
+    greedy();
+    end_time = chrono::high_resolution_clock::now();
+
+    if(CHECK) {
+        cout << "SOL: " << endl;
+        printSubsets(par->greedy_sol);
+    }
+    cout << "Solution Cardinality: " << par->greedy_sol.size() << endl;
+
+    cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
+
+
+    //NEW EXHAUSTIVE ALGORITHM
     start_time = chrono::high_resolution_clock::now();
     exhaustive_sol();
     end_time = chrono::high_resolution_clock::now();
@@ -184,15 +139,13 @@ void readFile(string filename) {
     istringstream ss(line);
     ss >> (par->m) >> (par->n);
 
-
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
     par->X = new ulong[par->nWX];
 
     //Costs
     int i = 0;
-    while(i < par->n)
-    {
+    while(i < par->n) {
         getline(file>>std::ws,line);
         istringstream iss(line);
         while (getline(iss, item, ' ')){i++;}
@@ -229,14 +182,54 @@ void readFile(string filename) {
     }
 }
 
+void greedy() {
+    cout << "-------------------------------------" << endl;
+    cout << "Executing classic greedy algorithm..." << endl;
+    cout << "-------------------------------------" << endl;
+    ulong* U = new ulong[par->nWX];
+    int i;
+    for(i=0; i<par->nWX; i++) U[i] = par->X[i];
+    vector<ulong*> C = par->unique_elements;
+    ulong* maxS;
+    int maxLengthSS = 0;
+    int lengthSS;
+
+    while( countSet(U) > 0 ) {
+
+        for( ulong* S : par->bF ){
+            if( find(C.begin(), C.end(), S) == C.end()) {
+                lengthSS = intersectionLength(U, S);
+                if(lengthSS > maxLengthSS) {
+                    maxLengthSS = lengthSS;
+                    maxS = S;
+                }
+            }
+        }
+
+        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~maxS[i];
+        C.push_back(maxS);
+
+        maxLengthSS = 0;
+    }
+
+    par->greedy_sol = C;
+}
+
 void exhaustive_sol() {
-    cout << "-------------------------------------" << endl;
-    cout << "Executing new exhaustive algorithm..." << endl;
-    cout << "-------------------------------------" << endl;
+    cout << "-----------------------------------------------------------" << endl;
+    cout << "Executing new exhaustive algorithm";
+    switch (par->search) {
+        case 0: cout << " with sequential search..." << endl;
+        break;
+        case 1: cout << " with binary search..." << endl;
+        break;
+        case 2: cout << " with exponential search..." << endl;
+    }
+    cout << "-----------------------------------------------------------" << endl;
+
     // Calcular mínimo número de subconjuntos
     vector<ulong*> Fsort = par->bF;
     sort(Fsort.begin(), Fsort.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
-    // printSubsets(Fsort);
     int minSS = 0;
     int k = 0;
     while(minSS < par->n) {
@@ -244,47 +237,38 @@ void exhaustive_sol() {
         k++;
     }
 
-    // cout << "K = " << k << endl;
-    // cout << "MinSS = " << minSS << endl;
-
-    ulong* eCover = new ulong[par->nWX];
-    ulong* unionC;
+    //Iterar desde K hasta encontrar el óptimo
     vector<ulong*> chosenSets;
 
-    ulong i;
-    int j;
+    //Búsqueda secuencial
+    if(par->search == 0){
+        while(true) {
+            if(PRINT) cout << "K = " << k << endl;
+            if ( kSol(0, k, chosenSets) ) break;
+            //No se encuentra una solución de tamaño k, aumentamos en 1
+            k++;
+        }
+    //Búsqueda binaria
+    } else if(par->search == 1) {
+        int ma = par->greedy_sol.size() - par->unique_elements.size();
+        binarySearch(k, k, ma, chosenSets);
+    //Búsqueda exponencial
+    } else if(par->search == 2) {
+        int exp = 1;
+        int greedySize = par->greedy_sol.size() - par->unique_elements.size();
+        while(k <= greedySize && !kSol(0, k, chosenSets)) {
+            cout << "K = " << k << endl;
+            k += exp;
+            exp *= 2;
+        }
 
-    //Iterar desde K hasta encontrar el óptimo
-    
-    // slong setsComb = slong(par->nWF);
-    // vector<ulong*> C;
-    while(true) {
-        if(PRINT) cout << "K = " << k << endl;
-        if ( kSol(0, k, chosenSets) ) return;
-        // while(countSet(setsComb.x, par->nWF) < par->m) {
-        //     setsComb.nextComb();
-        //     if( countSet(setsComb.x, par->nWF) == k ) {
-        //         // printSubset(setsComb.x, par->nWF);
-        //         C = getComb(setsComb.x,Fsort);
-        //         // printSubsets(C);
-        //         // cout << "----------------------" << endl;
-
-        //         unionC = unionF(C);
-        //         for(j=0; j<par->nWX; j++) eCover[j] = unionC[j] & par->X[j];
-                
-        //         if(countSet(eCover) == par->n){
-        //             cout << "Solution found with K = " << k << endl;
-        //             for(ulong* S : C) par->exh_sol.push_back(S);
-        //             return;
-        //         }
-        //         C.clear();
-        //     }
-        // }
-
-        //No se encuentra una solución de tamaño k, aumentamos en 1
-        k++;
-        // setsComb.clear();
+        //Realizar búsqueda binaria en un rango más pequeño
+        int mi = k - exp/2 + 1;
+        int ma = min(k-1, greedySize);
+        binarySearch(mi, mi, ma, chosenSets);
     }
+
+    par->exh_sol.insert(par->exh_sol.end(), par->unique_elements.begin(), par->unique_elements.end());
 }
 
 bool kSol(int index, int k, vector<ulong*> chosenSets) {
@@ -296,7 +280,8 @@ bool kSol(int index, int k, vector<ulong*> chosenSets) {
         for(int i=0; i<par->nWX; i++) xCover[i] = coveredElements[i] & par->X[i];
         if(countSet(xCover) == countSet(par->X)) {
             cout << "Solution found with K = " << chosenSets.size() << endl;
-            for(ulong* S : chosenSets) par->exh_sol.push_back(S);
+            // for(ulong* S : chosenSets) par->exh_sol.push_back(S);
+            par->exh_sol = chosenSets;
             delete[] coveredElements;
             delete[] xCover;
             return true;
@@ -349,23 +334,27 @@ void preprocess() {
             }
             cleanBit64(par->X,e-1);
         }
-        par->exh_sol.push_back(S);
+        par->unique_elements.push_back(S);
     }
 
-    for(ulong* S : par->exh_sol) {
+    for(ulong* S : par->unique_elements) {
         par->bF.erase(find(par->bF.begin(), par->bF.end(), S));
         par->m--;
     }
 
-    cout << "Added " << par->exh_sol.size() << " subsets " << endl; 
+    cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
     par->n = countSet(par->X);
     cout << "|X| = " << par->n << endl;
     cout << "|F| = " << par->m << endl;
+}
 
-    // par->nWF = (par->m)/(sizeof(ulong)*8);
-    // if ((par->m)%(sizeof(ulong)*8)>0) par->nWF++;
-
-    // cout << "nWF = " << par->nWF << endl;
+void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets) {
+    while(mi <= ma) {
+        if(PRINT) cout << "K = " << m << endl;
+        if (kSol(0, m, chosenSets)) ma = m - 1;
+        else mi = m + 1;
+        m = mi + (ma - mi)/2;
+    }
 }
 
 void createMap() {
@@ -390,6 +379,12 @@ ulong* unionF(vector<ulong*> &F) {
     return C;
 }
 
+int intersectionLength(ulong* A, ulong* B) {
+    ulong* interSS = new ulong[par->nWX];
+    for(int i=0; i<par->nWX; i++) interSS[i] = A[i] & B[i];
+    return countSet(interSS);
+}
+
 int countSet(ulong* S, int size){
     int cont = 0;
     for(int i=0; i<size; i++) {
@@ -412,22 +407,6 @@ void printSubset(ulong *S, int size) {
     }
     cout << endl;
 }
-
-// vector<ulong*> getComb(ulong* comb, vector<ulong*> F) {
-//     vector<ulong*> C;
-
-//     for(int i=0; i<par->nWF; i++) {
-//         uint cnt = 0;
-//         ulong mask = 1;
-
-//         for(cnt=0;cnt<W64;++cnt){
-//             if((comb[i] & mask) != 0) C.push_back(F[cnt]);
-//             mask <<= 1;
-//         }
-//     }
-
-//     return C;
-// }
 
 void printSubsets(vector<ulong*> C) {
     for(ulong* S : C) {
