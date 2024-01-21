@@ -30,7 +30,7 @@ typedef struct {
     vector<ulong*> greedy_sol;
     vector<ulong*> greedy2_sol;
     ulong sizeF, sizeNF;
-	ulong n, m, nWX, nWF;
+	ulong n, m, nWX;
 } ParProg;
 
 ParProg* par;
@@ -39,7 +39,7 @@ void readFile(string filename);
 void preprocess();
 
 vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F);
-void greedy2();
+void greedyExh();
 void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize);
 void createMap();
 ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C);
@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
 
     //SOL. NEW GREEDY ALGORITHM
     start_time = chrono::high_resolution_clock::now();
-    greedy2();
+    greedyExh();
     end_time = chrono::high_resolution_clock::now();
 
     if(CHECK) {
@@ -213,7 +213,7 @@ vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F) {
     return C;
 }
 
-void greedy2(){
+void greedyExh(){
     cout << "---------------------------------" << endl;
     cout << "Executing new greedy algorithm..." << endl;
     cout << "---------------------------------" << endl;

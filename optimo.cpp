@@ -30,7 +30,7 @@ typedef struct {
     vector<ulong*> greedy_sol;
     vector<ulong*> exh_sol;
     ulong sizeF, sizeNF;
-	ulong n, m, nWX, nWF;
+	ulong n, m, nWX;
 } ParProg;
 
 ParProg* par;
@@ -44,12 +44,12 @@ void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets);
 void exhaustive_sol();
 void greedy();
 
-ulong* unionF(vector<ulong*> &F);
-int countSet(ulong* S);
-int intersectionLength(ulong* A, ulong* B);
+ulong* unionF(const vector<ulong*> &F);
+int countSet(const ulong* S);
+int intersectionLength(const ulong* A, const ulong* B);
 
-void printSubset(ulong *S, int size = par->nWX);
-void printSubsets(vector<ulong*> C);
+void printSubset(const ulong *S);
+void printSubsets(const vector<ulong*> &C);
 
 int main(int argc, char** argv) {
 
@@ -327,11 +327,7 @@ void preprocess() {
 
         // Eliminar subsets del map que no se usen
         for(int e : par->F[setIndex]) {
-            for (int j=0; j<par->mp.size(); j++) {
-                if (par->mp[j].value == e) {
-                    par->mp.erase(par->mp.begin()+j);
-                }
-            }
+            par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
             cleanBit64(par->X,e-1);
         }
         par->unique_elements.push_back(S);
@@ -367,42 +363,36 @@ void createMap() {
     sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 }
 
-ulong* unionF(vector<ulong*> &F) {
-    int i,j;
+ulong* unionF(const vector<ulong*> &F) {
     ulong* C = new ulong[par->nWX];
-    for(j=0; j<par->nWX; j++) C[j] = 0;
-
-    for(i=0; i<F.size(); i++) {
-        for(j=0; j<par->nWX; j++) C[j] = C[j] | F[i][j];
-    }
-
+    fill(C, C + par->nWX, 0);
+    for(const ulong* subset : F) for(int i=0; i<par->nWX; i++) C[i] |= subset[i];
     return C;
 }
 
-int intersectionLength(ulong* A, ulong* B) {
-    ulong* interSS = new ulong[par->nWX];
-    for(int i=0; i<par->nWX; i++) interSS[i] = A[i] & B[i];
-    return countSet(interSS);
+int intersectionLength(const ulong* A, const ulong* B) {
+    int cont = 0;
+    for(int i=0; i<par->nWX; i++) cont += __builtin_popcountl(A[i] & B[i]);
+    return cont;
 }
 
-int countSet(ulong* S){
+int countSet(const ulong* S){
     int cont = 0;
     for(int i=0; i<par->nWX; i++) {
         cont += __builtin_popcountl(S[i]);
     }
-
     return cont;
 }
 
-void printSubset(ulong *S, int size) {
-    for (int i=0; i<size; i++){
+void printSubset(const ulong *S) {
+    for (int i=0; i<par->nWX; i++){
         printBitsUlong(S[i]);
         cout << " - ";
     }
     cout << endl;
 }
 
-void printSubsets(vector<ulong*> C) {
+void printSubsets(const vector<ulong*> &C) {
     for(ulong* S : C) {
         printSubset(S);
     }
