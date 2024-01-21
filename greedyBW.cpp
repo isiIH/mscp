@@ -12,6 +12,7 @@ using namespace cds;
 
 #define PRINT 1
 #define CHECK 0
+#define MAX_F_SIZE 32
 
 typedef struct{
 	int value;
@@ -41,7 +42,7 @@ vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F);
 void greedy2();
 void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize);
 void createMap();
-vector<ulong*> setsOfLength(const vector<item> &mp, const int l);
+ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C);
 
 bool isCovered(const vector<ulong*> subsets, const ulong* X);
 int intersectionLength(const ulong* A, const ulong* B);
@@ -228,13 +229,10 @@ void greedy2(){
     vector<ulong*> minSetCover;
 
     while(countSet(U) > 0) {
-        subF = setsOfLength(par->mp,k);
+        subU = setsOfLength(par->mp,k, subF);
 
         if(!subF.empty()){
-            subU = unionF(subF);
-            if(countSet(subU) > countSet(U)) {
-                for(j=0; j<par->nWX; j++) subU[j] = subU[j] & U[j];
-            }
+
             if(PRINT) {
                 cout << "Rep: " << k << endl;
                 cout << "U: " << countSet(U) << endl;
@@ -242,7 +240,7 @@ void greedy2(){
                 cout << "SubF: " << subF.size() << endl;
             }
 
-            if(subF.size() <= 32) {
+            if(subF.size() <= MAX_F_SIZE) {
                 minSetSize = par->m+1;
                 optimalSol(0, subU, subF, chosenSets, minSetCover, minSetSize);
                 chosenSets.clear();
@@ -265,6 +263,7 @@ void greedy2(){
                 par->greedy2_sol.push_back(S);
             }
 
+            subF.clear();
             minSetCover.clear();
         }
         k++;
@@ -283,12 +282,10 @@ void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> c
         if(CHECK) cout << "|chosenSets| = " << chosenSets.size() << endl;
 
         //Verificar si se cubre el universo
-        if(isCovered(chosenSets, X)) {
-            if(chosenSets.size() < minSetSize) {
-                if(PRINT) cout << "NEW MIN = " << chosenSets.size() << endl;
-                minSetSize = chosenSets.size();
-                minSetCover = chosenSets;
-            }
+        if(isCovered(chosenSets, X) & chosenSets.size() < minSetSize) {
+            if(PRINT) cout << "NEW MIN = " << chosenSets.size() << endl;
+            minSetSize = chosenSets.size();
+            minSetCover = chosenSets;
             return;
         }
 
@@ -322,9 +319,10 @@ void preprocess() {
 
         // Eliminar subsets del map que no se usen
         for(int e : par->F[setIndex]) {
-            par->mp.erase( find_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}) );
+            par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
             cleanBit64(par->X,e-1);
         }
+        
         par->greedy_sol.push_back(S);
         par->greedy2_sol.push_back(S);
     }
@@ -352,9 +350,10 @@ void createMap() {
     sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 }
 
-vector<ulong*> setsOfLength(const vector<item> &mp, const int l) {
+ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C) {
+    ulong* subU= new ulong[par->nWX];
+    fill(subU, subU + par->nWX, 0);
     int i=0;
-    vector<ulong*> C;
     while (i < mp.size() && mp[i].rep == l) {
         for (int index : mp[i].subSets){
             ulong* S = par->bF[index];
@@ -362,12 +361,13 @@ vector<ulong*> setsOfLength(const vector<item> &mp, const int l) {
                 C.push_back(S);
             }
         }
+        setBit64(subU, mp[i].value-1);
         i++;
     }
     
     sort(C.begin(), C.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
 
-    return C;
+    return subU;
 }
 
 bool isCovered(const vector<ulong*> subsets, const ulong* X) {
