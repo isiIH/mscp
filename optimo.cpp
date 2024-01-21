@@ -45,7 +45,7 @@ void exhaustive_sol();
 void greedy();
 
 ulong* unionF(vector<ulong*> &F);
-int countSet(ulong* S, int size=par->nWX);
+int countSet(ulong* S);
 int intersectionLength(ulong* A, ulong* B);
 
 void printSubset(ulong *S, int size = par->nWX);
@@ -385,16 +385,10 @@ int intersectionLength(ulong* A, ulong* B) {
     return countSet(interSS);
 }
 
-int countSet(ulong* S, int size){
+int countSet(ulong* S){
     int cont = 0;
-    for(int i=0; i<size; i++) {
-        uint cnt = 0;
-        ulong mask = 0x8000000000000000;
-
-        for(cnt=0;cnt<W64;++cnt){
-            if((S[i] & mask) != 0) cont++;
-            mask >>= 1;
-        }
+    for(int i=0; i<par->nWX; i++) {
+        cont += __builtin_popcountl(S[i]);
     }
 
     return cont;
