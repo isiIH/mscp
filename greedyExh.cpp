@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
     par->sizeNF = par->m*sizeof(ulong)*par->nWX;
 
 	cout << "nWX = " << par->nWX << endl;
-	cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB (using ulong per cell)" << endl;
+	cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB" << endl;
 	cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
 
     if(CHECK) {
@@ -177,8 +177,6 @@ void readFile(string filename) {
         i++;
     }
 }
-
-
 
 vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F) {
     cout << "-------------------------------------" << endl;

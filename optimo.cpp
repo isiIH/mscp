@@ -44,6 +44,7 @@ void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets);
 void exhaustive_sol();
 void greedy();
 
+bool isCovered(vector<ulong*> chosenSets);
 ulong* unionF(const vector<ulong*> &F);
 int countSet(const ulong* S);
 int intersectionLength(const ulong* A, const ulong* B);
@@ -74,7 +75,7 @@ int main(int argc, char** argv) {
     par->sizeNF = par->m*sizeof(ulong)*par->nWX;
 
 	cout << "nWX = " << par->nWX << endl;
-	cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB (using ulong per cell)" << endl;
+	cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB" << endl;
 	cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
 
     if(CHECK) {
@@ -275,19 +276,12 @@ bool kSol(int index, int k, vector<ulong*> chosenSets) {
     //|chosenSets| = k 
     if(k == 0) {
         //Verificar si se cubre el universo
-        ulong* coveredElements = unionF(chosenSets);
-        ulong* xCover = new ulong[par->nWX]; 
-        for(int i=0; i<par->nWX; i++) xCover[i] = coveredElements[i] & par->X[i];
-        if(countSet(xCover) == countSet(par->X)) {
+        if(isCovered(chosenSets)) {
             cout << "Solution found with K = " << chosenSets.size() << endl;
             // for(ulong* S : chosenSets) par->exh_sol.push_back(S);
             par->exh_sol = chosenSets;
-            delete[] coveredElements;
-            delete[] xCover;
             return true;
-        } 
-        delete[] coveredElements;
-        delete[] xCover;
+        }
         return false;
     }
 
@@ -361,6 +355,16 @@ void createMap() {
         par->mp[i].rep = par->mp[i].subSets.size();
     }
     sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
+}
+
+bool isCovered(vector<ulong*> chosenSets) {
+    ulong* coveredElements = unionF(chosenSets);
+    for (int i = 0; i < par->nWX; i++) if ((coveredElements[i] & par->X[i]) != par->X[i]) {
+        delete[] coveredElements;
+        return false;
+    }
+    delete[] coveredElements;
+    return true;
 }
 
 ulong* unionF(const vector<ulong*> &F) {
