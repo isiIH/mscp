@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
     }
 
     auto start_time = chrono::high_resolution_clock::now();
-    preprocess();
+    // preprocess();
     auto end_time = chrono::high_resolution_clock::now();
 	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
 
@@ -93,6 +93,7 @@ int main(int argc, char** argv) {
     start_time = chrono::high_resolution_clock::now();
     par->greedy_sol = greedy(par->X, par->bF);
     end_time = chrono::high_resolution_clock::now();
+    cout << isCovered(par->greedy_sol, par->X) << endl;
 
     if(CHECK) {
         cout << "SOL: " << endl;
@@ -103,6 +104,7 @@ int main(int argc, char** argv) {
     cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
 
     //SOL. NEW GREEDY ALGORITHM
+    createMap();
     start_time = chrono::high_resolution_clock::now();
     greedyExh();
     end_time = chrono::high_resolution_clock::now();
@@ -182,28 +184,28 @@ vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F) {
     cout << "-------------------------------------" << endl;
     cout << "Executing classic greedy algorithm..." << endl;
     cout << "-------------------------------------" << endl;
-    ulong* U = new ulong[par->nWX];
     int i;
+    ulong* U = new ulong[par->nWX];
     for(i=0; i<par->nWX; i++) U[i] = X[i];
+    vector<ulong*> subsets = F;
     vector<ulong*> C;
-    ulong* maxS;
+    int posSet;
     int maxLengthSS = 0;
     int lengthSS;
 
     while( countSet(U) > 0 ) {
 
-        for( ulong* S : F ){
-            if( find(C.begin(), C.end(), S) == C.end()) {
-                lengthSS = intersectionLength(U, S);
-                if(lengthSS > maxLengthSS) {
-                    maxLengthSS = lengthSS;
-                    maxS = S;
-                }
+        for( i=0; i<subsets.size(); i++ ){
+            lengthSS = intersectionLength(U, subsets[i]);
+            if(lengthSS > maxLengthSS) {
+                maxLengthSS = lengthSS;
+                posSet = i;
             }
         }
 
-        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~maxS[i];
-        C.push_back(maxS);
+        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
+        C.push_back(subsets[posSet]);
+        subsets.erase(subsets.begin()+posSet);
 
         maxLengthSS = 0;
     }
@@ -276,8 +278,6 @@ void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> c
     for (int j = i; j<F.size(); j++) {
         //Incluir el subconjunto
         chosenSets.push_back(F[j]);
-
-        if(CHECK) cout << "|chosenSets| = " << chosenSets.size() << endl;
 
         //Verificar si se cubre el universo
         if(isCovered(chosenSets, X) & chosenSets.size() < minSetSize) {

@@ -187,28 +187,28 @@ void greedy() {
     cout << "-------------------------------------" << endl;
     cout << "Executing classic greedy algorithm..." << endl;
     cout << "-------------------------------------" << endl;
-    ulong* U = new ulong[par->nWX];
     int i;
+    ulong* U = new ulong[par->nWX];
     for(i=0; i<par->nWX; i++) U[i] = par->X[i];
-    vector<ulong*> C = par->unique_elements;
-    ulong* maxS;
+    vector<ulong*> subsets = par->bF;
+    vector<ulong*> C;
+    int posSet;
     int maxLengthSS = 0;
     int lengthSS;
 
     while( countSet(U) > 0 ) {
 
-        for( ulong* S : par->bF ){
-            if( find(C.begin(), C.end(), S) == C.end()) {
-                lengthSS = intersectionLength(U, S);
-                if(lengthSS > maxLengthSS) {
-                    maxLengthSS = lengthSS;
-                    maxS = S;
-                }
+        for( i=0; i<subsets.size(); i++ ){
+            lengthSS = intersectionLength(U, subsets[i]);
+            if(lengthSS > maxLengthSS) {
+                maxLengthSS = lengthSS;
+                posSet = i;
             }
         }
 
-        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~maxS[i];
-        C.push_back(maxS);
+        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
+        C.push_back(subsets[posSet]);
+        subsets.erase(subsets.begin()+posSet);
 
         maxLengthSS = 0;
     }
