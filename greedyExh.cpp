@@ -26,7 +26,6 @@ typedef struct {
 	vector<vector<int>> F;
     vector<ulong*> bF;
     vector<item> mp;
-    vector<ulong*> unique_elements;
     vector<ulong*> greedy_sol;
     vector<ulong*> greedy2_sol;
     ulong sizeF, sizeNF;
@@ -84,16 +83,10 @@ int main(int argc, char** argv) {
         printSubsets(par->bF);
     }
 
-    auto start_time = chrono::high_resolution_clock::now();
-    // preprocess();
-    auto end_time = chrono::high_resolution_clock::now();
-	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
-
     //SOL. CLASSIC GREEDY ALGORITHM
-    start_time = chrono::high_resolution_clock::now();
+    auto start_time = chrono::high_resolution_clock::now();
     par->greedy_sol = greedy(par->X, par->bF);
-    end_time = chrono::high_resolution_clock::now();
-    cout << isCovered(par->greedy_sol, par->X) << endl;
+    auto end_time = chrono::high_resolution_clock::now();
 
     if(CHECK) {
         cout << "SOL: " << endl;
@@ -103,8 +96,13 @@ int main(int argc, char** argv) {
 
     cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
 
+    //PREPROCESS
+    start_time = chrono::high_resolution_clock::now();
+    preprocess();
+    end_time = chrono::high_resolution_clock::now();
+	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
+
     //SOL. NEW GREEDY ALGORITHM
-    createMap();
     start_time = chrono::high_resolution_clock::now();
     greedyExh();
     end_time = chrono::high_resolution_clock::now();
@@ -320,12 +318,11 @@ void preprocess() {
             par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
             cleanBit64(par->X,e-1);
         }
-        
-        par->greedy_sol.push_back(S);
+
         par->greedy2_sol.push_back(S);
     }
 
-    cout << "Added " << par->greedy_sol.size() << " subsets " << endl; 
+    cout << "Added " << par->greedy2_sol.size() << " subsets " << endl; 
     cout << "|X| = " << countSet(par->X) << endl;
 
     if(CHECK) {

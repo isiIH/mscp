@@ -89,24 +89,14 @@ int main(int argc, char** argv) {
         printSubsets(par->bF);
     }
 
+    //PREPROCESS
     auto start_time = chrono::high_resolution_clock::now();
     preprocess();
     auto end_time = chrono::high_resolution_clock::now();
-	cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
+	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
 
-    //SOL. CLASSIC GREEDY ALGORITHM
-    start_time = chrono::high_resolution_clock::now();
+    //GREEDY
     greedy();
-    end_time = chrono::high_resolution_clock::now();
-
-    if(CHECK) {
-        cout << "SOL: " << endl;
-        printSubsets(par->greedy_sol);
-    }
-    cout << "Solution Cardinality: " << par->greedy_sol.size() << endl;
-
-    cout << "Duración en milisegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000.0 << endl;
-
 
     //NEW EXHAUSTIVE ALGORITHM
     start_time = chrono::high_resolution_clock::now();
@@ -119,7 +109,6 @@ int main(int argc, char** argv) {
     }
     cout << "Solution Cardinality: " << par->exh_sol.size() << endl;
 
-    cout << "Duración en segundos: " << chrono::duration_cast<chrono::seconds>(end_time - start_time).count() << endl;
 	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
 
     return 0;
@@ -184,14 +173,11 @@ void readFile(string filename) {
 }
 
 void greedy() {
-    cout << "-------------------------------------" << endl;
-    cout << "Executing classic greedy algorithm..." << endl;
-    cout << "-------------------------------------" << endl;
     int i;
     ulong* U = new ulong[par->nWX];
     for(i=0; i<par->nWX; i++) U[i] = par->X[i];
     vector<ulong*> subsets = par->bF;
-    vector<ulong*> C;
+    vector<ulong*> C = par->unique_elements;
     int posSet;
     int maxLengthSS = 0;
     int lengthSS;
@@ -240,6 +226,7 @@ void exhaustive_sol() {
 
     //Iterar desde K hasta encontrar el óptimo
     vector<ulong*> chosenSets;
+    cout << "Search Range = [" << k << " - " << par->greedy_sol.size() - par->unique_elements.size() << "]" << endl;
 
     //Búsqueda secuencial
     if(par->search == 0){
