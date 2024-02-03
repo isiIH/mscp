@@ -13,7 +13,7 @@ using namespace std;
 using namespace cds;
 
 #define PRINT 1
-#define CHECK 0
+#define CHECK 1
 #define MAX_F_SIZE 32
 
 typedef struct{
@@ -122,67 +122,6 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-// void readFile(string filename) {
-//     cout << "Reading file " << filename << "..." << endl;
-//     string nametxt = "test/" + filename;
-//     ifstream file(nametxt.c_str());
-//     if(file.fail()){
-//         cout << "File not found!" << endl;
-//         exit(EXIT_FAILURE);
-//     }
-//     string line,item;
-
-//     //m & n
-// 	getline(file,line);
-//     istringstream ss(line);
-//     ss >> (par->m) >> (par->n);
-
-
-//     par->nWX = (par->n)/(sizeof(ulong)*8);
-//     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-//     par->X = new ulong[par->nWX];
-//     fill(par->X, par->X + par->nWX, 0);
-
-//     //Costs
-//     int i = 0;
-//     while(i < par->n)
-//     {
-//         getline(file>>std::ws,line);
-//         istringstream iss(line);
-//         while (getline(iss, item, ' ')){i++;}
-//     }
-
-//     //Sets
-//     int numCover;
-//     i = 0;
-//     int j;
-//     ulong *bset;
-//     vector<int> set;
-//     while(i < par->m) {
-//         getline(file>>std::ws,line);
-//         numCover = stoi(line);
-
-//         bset = new ulong[par->nWX];
-//         fill(bset, bset + par->nWX, 0);
-
-//         j = 0;
-//         while(j < numCover){
-//             getline(file>>std::ws,line);
-//             istringstream iss(line);
-//             while (getline(iss, item, ' ')) {
-//                 set.push_back(stoi(item));
-//                 setBit64(bset, stoi(item)-1);
-//                 setBit64(par->X, stoi(item)-1);
-//                 j++;
-//             }
-//         }
-//         (par->F).push_back(set);
-//         set.clear();
-//         (par->bF).push_back(bset);
-//         i++;
-//     }
-// }
-
 void readFile(string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename;
@@ -272,6 +211,12 @@ vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F) {
             }
         }
 
+        cout << "U = " << countSet(U) << endl;
+        for( pair<int, int> values : par->elem_pos ) if(getBit64(U, values.second)) cout << values.first << " ";
+        cout << endl;
+        for( pair<int, int> values : par->elem_pos ) if(getBit64(subsets[posSet], values.second)) cout << values.first << " ";
+        cout << endl;
+
         for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
         C.push_back(subsets[posSet]);
         subsets.erase(subsets.begin()+posSet);
@@ -302,6 +247,8 @@ void greedyExh(){
     while(countSet(U) > 0) {
         subU = setsOfLength(par->mp,k, subF);
         sumF = unionF(subF);
+        printSubset(sumF);
+        printSubset(U);
         for(j=0; j<par->nWX; j++) sumF[j] = sumF[j] & U[j];
 
         if(!subF.empty()){
@@ -312,16 +259,17 @@ void greedyExh(){
                 cout << "SubU: " << countSet(subU) << endl;
                 cout << "SumF: " << countSet(sumF) << endl;
                 cout << "SubF: " << subF.size() << endl;
+                printSubsets(subF);
             }
 
-            if(subF.size() <= MAX_F_SIZE) {
-                minSetSize = par->m+1;
-                maxCover = 0;
-                optimalSol(0, sumF, subF, chosenSets, minSetCover, minSetSize, maxCover);
-                chosenSets.clear();
-            } else {
-                minSetCover = greedy(sumF, subF);
-            }
+            // if(subF.size() <= MAX_F_SIZE) {
+            //     minSetSize = par->m+1;
+            //     maxCover = 0;
+            //     optimalSol(0, sumF, subF, chosenSets, minSetCover, minSetSize, maxCover);
+            //     chosenSets.clear();
+            // } else {
+                minSetCover = greedy(subU, subF);
+            // }
 
             if(PRINT) {
                 cout << "Sol. Exhaustiva: " << minSetCover.size() << endl;
@@ -334,6 +282,12 @@ void greedyExh(){
                 par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [S](const item& it) {
                     return find_if(it.subSets.begin(), it.subSets.end(), [=](const int& set) { return par->bF[set] == S; }) != it.subSets.end();
                 }), par->mp.end());
+
+                // for(item mp_item : par->mp) {
+                //     cout << " - " << mp_item.value << " - " << endl;
+                //     cout << mp_item.rep << " subsets." << endl;
+                //     // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+                // }
 
                 par->greedy2_sol.push_back(S);
             }
@@ -384,7 +338,7 @@ void preprocess() {
         for(item mp_item : par->mp) {
             cout << " - " << mp_item.value << " - " << endl;
             cout << mp_item.rep << " subsets." << endl;
-            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+            // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
         }
     }
 
@@ -398,7 +352,7 @@ void preprocess() {
         // Eliminar subsets del map que no se usen
         for(int e : par->F[setIndex]) {
             par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
-            cleanBit64(par->X,e-1);
+            cleanBit64(par->X,par->elem_pos[e]);
         }
 
         par->greedy2_sol.push_back(S);
@@ -412,17 +366,19 @@ void preprocess() {
         for(item mp_item : par->mp) {
             cout << " - " << mp_item.value << " - " << endl;
             cout << mp_item.rep << " subsets." << endl;
-            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+            // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
         }
     }
 }
 
 void createMap() {
     par->mp = vector<item>(par->n);
-    for(int i=0; i<par->n; i++) {
-        par->mp[i].value = i+1;
-        for( int j = 0; j<par->bF.size(); j++ ) if(getBit64(par->bF[j], i)) par->mp[i].subSets.push_back(j);
+    int i = 0;
+    for(pair<int,int> values : par->elem_pos) {
+        par->mp[i].value = values.first;
+        for( int j = 0; j<par->bF.size(); j++ ) if(getBit64(par->bF[j], values.second)) par->mp[i].subSets.push_back(j);
         par->mp[i].rep = par->mp[i].subSets.size();
+        i++;
     }
     sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 }
@@ -438,7 +394,7 @@ ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C) {
                 C.push_back(S);
             }
         }
-        setBit64(subU, mp[i].value-1);
+        setBit64(subU, par->elem_pos[mp[i].value]);
         i++;
     }
     
