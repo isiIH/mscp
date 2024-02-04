@@ -43,7 +43,7 @@ void preprocess();
 
 vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F);
 void greedyExh();
-void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover);
+void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover);
 void createMap();
 ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C);
 
@@ -122,67 +122,6 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-// void readFile(string filename) {
-//     cout << "Reading file " << filename << "..." << endl;
-//     string nametxt = "test/" + filename;
-//     ifstream file(nametxt.c_str());
-//     if(file.fail()){
-//         cout << "File not found!" << endl;
-//         exit(EXIT_FAILURE);
-//     }
-//     string line,item;
-
-//     //m & n
-// 	getline(file,line);
-//     istringstream ss(line);
-//     ss >> (par->m) >> (par->n);
-
-
-//     par->nWX = (par->n)/(sizeof(ulong)*8);
-//     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-//     par->X = new ulong[par->nWX];
-//     fill(par->X, par->X + par->nWX, 0);
-
-//     //Costs
-//     int i = 0;
-//     while(i < par->n)
-//     {
-//         getline(file>>std::ws,line);
-//         istringstream iss(line);
-//         while (getline(iss, item, ' ')){i++;}
-//     }
-
-//     //Sets
-//     int numCover;
-//     i = 0;
-//     int j;
-//     ulong *bset;
-//     vector<int> set;
-//     while(i < par->m) {
-//         getline(file>>std::ws,line);
-//         numCover = stoi(line);
-
-//         bset = new ulong[par->nWX];
-//         fill(bset, bset + par->nWX, 0);
-
-//         j = 0;
-//         while(j < numCover){
-//             getline(file>>std::ws,line);
-//             istringstream iss(line);
-//             while (getline(iss, item, ' ')) {
-//                 set.push_back(stoi(item));
-//                 setBit64(bset, stoi(item)-1);
-//                 setBit64(par->X, stoi(item)-1);
-//                 j++;
-//             }
-//         }
-//         (par->F).push_back(set);
-//         set.clear();
-//         (par->bF).push_back(bset);
-//         i++;
-//     }
-// }
-
 void readFile(string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename;
@@ -196,56 +135,51 @@ void readFile(string filename) {
     //m & n
 	getline(file,line);
     istringstream ss(line);
-    ss >> (par->m);
+    ss >> (par->m) >> (par->n);
 
-    //Sets
-    vector<int> sub;
-    for (int i = 0; i < par->m; i++) {
-        getline(file,line);
-        istringstream ss(line);
-        getline(ss, item, ' ');
-        getline(ss, item, ' ');
-
-        while (getline(ss, item, ' ')) {
-            sub.push_back(stoi(item));
-            par->chi.insert(stoi(item));
-        }
-        (par->F).push_back(sub);
-        sub.clear();
-    }
-
-    par->n = par->chi.size();
 
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
     par->X = new ulong[par->nWX];
     fill(par->X, par->X + par->nWX, 0);
 
-    int pos = 0;
-    for(int e : par->chi){
-        setBit64(par->X, pos);
-        par->elem_pos[e] = pos;
-        pos++;
+    //Costs
+    int i = 0;
+    while(i < par->n)
+    {
+        getline(file>>std::ws,line);
+        istringstream iss(line);
+        while (getline(iss, item, ' ')){i++;}
     }
 
+    //Sets
+    int numCover;
+    i = 0;
+    int j;
     ulong *bset;
-    for( vector<int> subset : par->F ) {
+    vector<int> set;
+    while(i < par->m) {
+        getline(file>>std::ws,line);
+        numCover = stoi(line);
+
         bset = new ulong[par->nWX];
         fill(bset, bset + par->nWX, 0);
 
-        for( int e : subset ) {
-            setBit64(bset, par->elem_pos[e]);
+        j = 0;
+        while(j < numCover){
+            getline(file>>std::ws,line);
+            istringstream iss(line);
+            while (getline(iss, item, ' ')) {
+                set.push_back(stoi(item));
+                setBit64(bset, stoi(item)-1);
+                setBit64(par->X, stoi(item)-1);
+                j++;
+            }
         }
-
-        par->bF.push_back(bset);
-        printSubset(bset);
-    }
-
-    if(CHECK) {
-        cout << "X = " << countSet(par->X) << endl;
-        cout << "n = " << par->n << endl;
-        cout << "F = " << par->bF.size() << endl;
-        cout << "m = " << par->m << endl;
+        (par->F).push_back(set);
+        set.clear();
+        (par->bF).push_back(bset);
+        i++;
     }
 }
 
@@ -314,14 +248,14 @@ void greedyExh(){
                 cout << "SubF: " << subF.size() << endl;
             }
 
-            if(subF.size() <= MAX_F_SIZE) {
+            // if(subF.size() <= MAX_F_SIZE) {
                 minSetSize = par->m+1;
                 maxCover = 0;
-                optimalSol(0, sumF, subF, chosenSets, minSetCover, minSetSize, maxCover);
+                optimalSol(0, sumF, subU, subF, chosenSets, minSetCover, minSetSize, maxCover);
                 chosenSets.clear();
-            } else {
-                minSetCover = greedy(sumF, subF);
-            }
+            // } else {
+            //     minSetCover = greedy(sumF, subF);
+            // }
 
             if(PRINT) {
                 cout << "Sol. Exhaustiva: " << minSetCover.size() << endl;
@@ -346,7 +280,7 @@ void greedyExh(){
 
 }
 
-void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover) {
+void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover) {
     //Si ya no hay más conjuntos que agregar o si no hay una mejor solución por esta rama
     if(i == F.size() || chosenSets.size() >= minSetSize) return;
 
@@ -357,7 +291,7 @@ void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> c
         //Verificar si se cubre el universo
         ulong* sumF = unionF(chosenSets);
         int coveredElements = intersectionLength(X, sumF);
-        if(isCovered(sumF, X) && (chosenSets.size() < minSetSize || coveredElements > maxCover)) {
+        if(isCovered(sumF, elems) && (chosenSets.size() < minSetSize || coveredElements > maxCover)) {
             if(PRINT) cout << "NEW MIN = " << chosenSets.size() << endl;
             minSetSize = chosenSets.size();
             maxCover = coveredElements;
@@ -367,7 +301,7 @@ void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> c
         }
         delete[] sumF;
 
-        optimalSol(j+1, X, F, chosenSets, minSetCover, minSetSize, maxCover);
+        optimalSol(j+1, X, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
         
         //No incluir el subconjunto
         chosenSets.pop_back();
