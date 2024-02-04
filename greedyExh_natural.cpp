@@ -13,7 +13,7 @@ using namespace std;
 using namespace cds;
 
 #define PRINT 1
-#define CHECK 1
+#define CHECK 0
 #define MAX_F_SIZE 32
 
 typedef struct{
@@ -43,7 +43,7 @@ void preprocess();
 
 vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F);
 void greedyExh();
-void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover);
+void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover);
 void createMap();
 ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C);
 
@@ -177,10 +177,10 @@ void readFile(string filename) {
         }
 
         par->bF.push_back(bset);
-        printSubset(bset);
     }
 
     if(CHECK) {
+        printSubset(bset);
         cout << "X = " << countSet(par->X) << endl;
         cout << "n = " << par->n << endl;
         cout << "F = " << par->bF.size() << endl;
@@ -202,20 +202,26 @@ vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F) {
     int lengthSS;
 
     while( countSet(U) > 0 ) {
-
+        if(CHECK) cout << "POSIBLE SETS:" << endl;
         for( i=0; i<subsets.size(); i++ ){
             lengthSS = intersectionLength(U, subsets[i]);
             if(lengthSS > maxLengthSS) {
                 maxLengthSS = lengthSS;
                 posSet = i;
             }
+            if(CHECK) {
+                for( pair<int, int> values : par->elem_pos ) if(getBit64(subsets[i], values.second)) cout << values.first << " ";
+                cout << " | " << lengthSS << endl;
+            }
         }
 
-        cout << "U = " << countSet(U) << endl;
-        for( pair<int, int> values : par->elem_pos ) if(getBit64(U, values.second)) cout << values.first << " ";
-        cout << endl;
-        for( pair<int, int> values : par->elem_pos ) if(getBit64(subsets[posSet], values.second)) cout << values.first << " ";
-        cout << endl;
+        if(CHECK) {
+            cout << "U = " << countSet(U) << ", { ";
+            for( pair<int, int> values : par->elem_pos ) if(getBit64(U, values.second)) cout << values.first << " ";
+            cout << "}" << endl << "Best Set: { ";
+            for( pair<int, int> values : par->elem_pos ) if(getBit64(subsets[posSet], values.second)) cout << values.first << " ";
+            cout << "}" <<endl;
+        }
 
         for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
         C.push_back(subsets[posSet]);
@@ -247,8 +253,6 @@ void greedyExh(){
     while(countSet(U) > 0) {
         subU = setsOfLength(par->mp,k, subF);
         sumF = unionF(subF);
-        printSubset(sumF);
-        printSubset(U);
         for(j=0; j<par->nWX; j++) sumF[j] = sumF[j] & U[j];
 
         if(!subF.empty()){
@@ -259,16 +263,15 @@ void greedyExh(){
                 cout << "SubU: " << countSet(subU) << endl;
                 cout << "SumF: " << countSet(sumF) << endl;
                 cout << "SubF: " << subF.size() << endl;
-                printSubsets(subF);
             }
 
             // if(subF.size() <= MAX_F_SIZE) {
-            //     minSetSize = par->m+1;
-            //     maxCover = 0;
-            //     optimalSol(0, sumF, subF, chosenSets, minSetCover, minSetSize, maxCover);
-            //     chosenSets.clear();
+                minSetSize = par->m+1;
+                maxCover = 0;
+                optimalSol(0, sumF, subU, subF, chosenSets, minSetCover, minSetSize, maxCover);
+                chosenSets.clear();
             // } else {
-                minSetCover = greedy(subU, subF);
+                // minSetCover = greedy(sumF, subF);
             // }
 
             if(PRINT) {
@@ -283,12 +286,6 @@ void greedyExh(){
                     return find_if(it.subSets.begin(), it.subSets.end(), [=](const int& set) { return par->bF[set] == S; }) != it.subSets.end();
                 }), par->mp.end());
 
-                // for(item mp_item : par->mp) {
-                //     cout << " - " << mp_item.value << " - " << endl;
-                //     cout << mp_item.rep << " subsets." << endl;
-                //     // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
-                // }
-
                 par->greedy2_sol.push_back(S);
             }
 
@@ -300,7 +297,7 @@ void greedyExh(){
 
 }
 
-void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover) {
+void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover) {
     //Si ya no hay más conjuntos que agregar o si no hay una mejor solución por esta rama
     if(i == F.size() || chosenSets.size() >= minSetSize) return;
 
@@ -311,7 +308,7 @@ void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> c
         //Verificar si se cubre el universo
         ulong* sumF = unionF(chosenSets);
         int coveredElements = intersectionLength(X, sumF);
-        if(isCovered(sumF, X) && (chosenSets.size() < minSetSize || coveredElements > maxCover)) {
+        if(isCovered(sumF, elems) && (chosenSets.size() < minSetSize || coveredElements > maxCover)) {
             if(PRINT) cout << "NEW MIN = " << chosenSets.size() << endl;
             minSetSize = chosenSets.size();
             maxCover = coveredElements;
@@ -321,7 +318,7 @@ void optimalSol(int i, const ulong* X, const vector<ulong*> &F, vector<ulong*> c
         }
         delete[] sumF;
 
-        optimalSol(j+1, X, F, chosenSets, minSetCover, minSetSize, maxCover);
+        optimalSol(j+1, X, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
         
         //No incluir el subconjunto
         chosenSets.pop_back();
@@ -366,6 +363,8 @@ void preprocess() {
         for(item mp_item : par->mp) {
             cout << " - " << mp_item.value << " - " << endl;
             cout << mp_item.rep << " subsets." << endl;
+            for (int setIndex : mp_item.subSets) cout << setIndex << " ";
+            cout << endl;
             // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
         }
     }
