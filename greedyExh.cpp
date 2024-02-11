@@ -292,16 +292,15 @@ void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> 
         ulong* sumF = unionF(chosenSets);
         int coveredElements = intersectionLength(X, sumF);
         if(isCovered(sumF, elems) && (chosenSets.size() < minSetSize || coveredElements > maxCover)) {
-            if(PRINT) cout << "NEW MIN = " << chosenSets.size() << endl;
+            if(PRINT) cout << "NEW MIN = " << chosenSets.size() << " maxCover = " << coveredElements << endl;
             minSetSize = chosenSets.size();
             maxCover = coveredElements;
             minSetCover = chosenSets;
             delete[] sumF;
-            return;
+        } else {
+            delete[] sumF;
+            optimalSol(j+1, X, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
         }
-        delete[] sumF;
-
-        optimalSol(j+1, X, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
         
         //No incluir el subconjunto
         chosenSets.pop_back();

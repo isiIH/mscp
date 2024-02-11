@@ -140,7 +140,7 @@ void readFile(string filename) {
     //Sets
     vector<int> sub;
     for (int i = 0; i < par->m; i++) {
-        getline(file,line);
+        getline(file>>std::ws,line);
         istringstream ss(line);
         getline(ss, item, ' ');
         getline(ss, item, ' ');
@@ -180,6 +180,9 @@ void readFile(string filename) {
     }
 
     if(CHECK) {
+        cout << "Universe elements = " << endl;
+        for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
+        cout << endl;
         printSubset(bset);
         cout << "X = " << countSet(par->X) << endl;
         cout << "n = " << par->n << endl;
@@ -254,12 +257,20 @@ void greedyExh(){
         subU = setsOfLength(par->mp,k, subF);
         sumF = unionF(subF);
         for(j=0; j<par->nWX; j++) sumF[j] = sumF[j] & U[j];
+        for( ulong* set : subF ){
+            cout << "{ ";
+            for( pair<int, int> values : par->elem_pos ) if(getBit64(set, values.second)) cout << values.first << " ";
+            cout << "}" << endl;
+        }
 
         if(!subF.empty()){
 
             if(PRINT) {
                 cout << "Rep: " << k << endl;
                 cout << "U: " << countSet(U) << endl;
+                cout << "{ ";
+                for( pair<int, int> values : par->elem_pos ) if(getBit64(U, values.second)) cout << values.first << " ";
+                cout << "}" << endl;
                 cout << "SubU: " << countSet(subU) << endl;
                 cout << "SumF: " << countSet(sumF) << endl;
                 cout << "SubF: " << subF.size() << endl;
@@ -276,6 +287,11 @@ void greedyExh(){
 
             if(PRINT) {
                 cout << "Sol. Exhaustiva: " << minSetCover.size() << endl;
+                for( ulong* set : minSetCover ){
+                    cout << "{ ";
+                    for( pair<int, int> values : par->elem_pos ) if(getBit64(set, values.second)) cout << values.first << " ";
+                    cout << "}" << endl;
+                }
                 cout << "----------------------" << endl;
             }
 
@@ -309,16 +325,15 @@ void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> 
         ulong* sumF = unionF(chosenSets);
         int coveredElements = intersectionLength(X, sumF);
         if(isCovered(sumF, elems) && (chosenSets.size() < minSetSize || coveredElements > maxCover)) {
-            if(PRINT) cout << "NEW MIN = " << chosenSets.size() << endl;
+            if(PRINT) cout << "NEW MIN = " << chosenSets.size() << " maxCover = " << coveredElements << endl;
             minSetSize = chosenSets.size();
             maxCover = coveredElements;
             minSetCover = chosenSets;
             delete[] sumF;
-            return;
+        } else {
+            delete[] sumF;
+            optimalSol(j+1, X, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
         }
-        delete[] sumF;
-
-        optimalSol(j+1, X, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
         
         //No incluir el subconjunto
         chosenSets.pop_back();
