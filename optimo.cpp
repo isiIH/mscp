@@ -116,60 +116,77 @@ int main(int argc, char** argv) {
 
 void readFile(string filename) {
     cout << "Reading file " << filename << "..." << endl;
-    string nametxt = "test/" + filename;
+    string nametxt = "scp/" + filename;
     ifstream file(nametxt.c_str());
     if(file.fail()){
         cout << "File not found!" << endl;
         exit(EXIT_FAILURE);
     }
     string line,item;
+    int i;
 
     //m & n
 	getline(file,line);
     istringstream ss(line);
-    ss >> (par->m) >> (par->n);
+    ss >> (par->n) >> (par->m);
+
 
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-    par->X = new ulong[par->nWX];
+    par->X = new ulong[par->nWX]();
+    ulong* bset;
+    for (i = 0; i < par->m; i++) {
+        bset = new ulong[par->nWX]();
+        par->bF.push_back(bset);
+    }
 
     //Costs
-    int i = 0;
-    while(i < par->n) {
+    i = 0;
+    while(i < par->m)
+    {
         getline(file>>std::ws,line);
         istringstream iss(line);
         while (getline(iss, item, ' ')){i++;}
     }
 
+
     //Sets
     int numCover;
-    i = 0;
     int j;
-    ulong *bset;
-    vector<int> set;
-    while(i < par->m) {
+    for(i=0; i<par->n; i++) {
         getline(file>>std::ws,line);
         numCover = stoi(line);
 
-        bset = new ulong[par->nWX];
-        for (j=0; j < par->nWX; j++) bset[j] = 0;
-
         j = 0;
+        setBit64(par->X, i);
         while(j < numCover){
             getline(file>>std::ws,line);
             istringstream iss(line);
             while (getline(iss, item, ' ')) {
-                set.push_back(stoi(item));
-                setBit64(bset, stoi(item)-1);
-                setBit64(par->X, stoi(item)-1);
+                setBit64(par->bF[stoi(item)-1], i); 
                 j++;
             }
         }
-        (par->F).push_back(set);
-        set.clear();
-        (par->bF).push_back(bset);
-        i++;
     }
+
+    vector<int> set;
+    for ( ulong* ss : par->bF ) {
+        for( i=0; i<par->n; i++ ) if(getBit64(ss, i)) set.push_back(i+1);
+        par->F.push_back(set);
+        set.clear();
+    }
+
+    if(CHECK) {
+        printSubsets(par->bF);
+
+        for( vector<int> set : par->F ) {
+            for( int e : set ) {
+                cout << e << " ";
+            }
+            cout << endl;
+        }
+    }
+
 }
 
 void greedy() {
