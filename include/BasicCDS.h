@@ -42,6 +42,8 @@ namespace cds {
 	// cleans bit i-ht in e (left to right)
 	void cleanBit64(ulong *e, ulong i);
 
+	int checkBit(ulong *e, int pos);
+
 	// print W64 bits of unsigned long int x
 	void printBitsUlong(ulong x);
 

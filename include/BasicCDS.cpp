@@ -21,6 +21,10 @@ namespace cds {
 	void cleanBit64(ulong * e, ulong i) {
 		e[i>>BW64] &= ~(maskW63>>(i%W64));
 	}
+	
+	int checkBit(ulong *e, int pos){
+		return((((e[pos/W64])>>(W64-1-(pos%W64)))&1));
+	}
 
 	// print W64 bits of unsigned long int x
 	void printBitsUlong(ulong x){
