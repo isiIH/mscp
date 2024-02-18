@@ -6,6 +6,9 @@
 #include <chrono>
 #include "include/BasicCDS.h"
 #include <cmath>
+#include <set>
+#include <map>
+#include <unordered_map>
 
 using namespace std;
 using namespace cds;
@@ -24,6 +27,8 @@ typedef struct {
     int search;
 	ulong* X;
 	vector<vector<int>> F;
+    set<int> chi;
+    map<int,int> elem_pos;
     vector<ulong*> bF;
     vector<item> mp;
     vector<ulong*> unique_elements;
@@ -36,8 +41,11 @@ typedef struct {
 ParProg* par;
 
 void readFile(string filename);
+void readFileScp(string filename);
+void readFilePartition(string filename);
+void analizeF();
 void preprocess();
-void createMap();
+
 bool kSol(int i, int k, vector<ulong*> chosenSets);
 void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets);
 
@@ -67,6 +75,11 @@ int main(int argc, char** argv) {
     }
 
     readFile(argv[1]);
+    auto start_time = chrono::high_resolution_clock::now();
+    analizeF();
+    auto end_time = chrono::high_resolution_clock::now();
+    auto dur_analyze = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+
 
     cout  << "X: " << par->n
         << " | F: " << par->m << endl;
@@ -90,10 +103,10 @@ int main(int argc, char** argv) {
     }
 
     //PREPROCESS
-    auto start_time = chrono::high_resolution_clock::now();
+    start_time = chrono::high_resolution_clock::now();
     preprocess();
-    auto end_time = chrono::high_resolution_clock::now();
-	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
+    end_time = chrono::high_resolution_clock::now();
+    auto dur_preprocess = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
     //GREEDY
     greedy();
@@ -102,19 +115,25 @@ int main(int argc, char** argv) {
     start_time = chrono::high_resolution_clock::now();
     exhaustive_sol();
     end_time = chrono::high_resolution_clock::now();
+    auto dur_opt = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    dur_opt += dur_preprocess + dur_analyze;
 
     if(CHECK) {
         cout << "SOL: " << endl;
         printSubsets(par->exh_sol);
     }
-    cout << "Solution Cardinality: " << par->exh_sol.size() << endl;
-
-	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
+	cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
+    cout << "Time [μs]: " << dur_opt << endl;
 
     return 0;
 }
 
 void readFile(string filename) {
+    if (filename.substr(0,3) == "scp") readFileScp(filename);
+    else readFilePartition(filename);
+}
+
+void readFileScp(string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "scp/" + filename;
     ifstream file(nametxt.c_str());
@@ -126,19 +145,9 @@ void readFile(string filename) {
     int i;
 
     //m & n
-	getline(file,line);
+	getline(file>>std::ws,line);
     istringstream ss(line);
     ss >> (par->n) >> (par->m);
-
-
-    par->nWX = (par->n)/(sizeof(ulong)*8);
-    if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-    par->X = new ulong[par->nWX]();
-    ulong* bset;
-    for (i = 0; i < par->m; i++) {
-        bset = new ulong[par->nWX]();
-        par->bF.push_back(bset);
-    }
 
     //Costs
     i = 0;
@@ -146,47 +155,128 @@ void readFile(string filename) {
     {
         getline(file>>std::ws,line);
         istringstream iss(line);
-        while (getline(iss, item, ' ')){i++;}
+        while (getline(iss>>std::ws, item, ' ')){i++;}
     }
-
 
     //Sets
     int numCover;
     int j;
+    par->F.resize(par->m);
     for(i=0; i<par->n; i++) {
         getline(file>>std::ws,line);
         numCover = stoi(line);
 
         j = 0;
-        setBit64(par->X, i);
         while(j < numCover){
             getline(file>>std::ws,line);
             istringstream iss(line);
             while (getline(iss, item, ' ')) {
-                setBit64(par->bF[stoi(item)-1], i); 
+                par->F[stoi(item)-1].push_back(i+1);
                 j++;
             }
         }
     }
+}
 
-    vector<int> set;
-    for ( ulong* ss : par->bF ) {
-        for( i=0; i<par->n; i++ ) if(getBit64(ss, i)) set.push_back(i+1);
-        par->F.push_back(set);
-        set.clear();
+void readFilePartition(string filename) {
+    if(PRINT) cout << "Reading file " << filename << "..." << endl;
+    string nametxt = "test_partition/" + filename;
+    ifstream file(nametxt.c_str());
+    if(file.fail()){
+        cout << "File not found!" << endl;
+        exit(EXIT_FAILURE);
+    }
+    string line,item;
+
+    //m & n
+	getline(file>>std::ws,line);
+    istringstream ss(line);
+    ss >> (par->n) >> (par->m);
+
+    //Sets
+    vector<int> sub;
+    for (int i = 0; i < par->m; i++) {
+        getline(file>>std::ws,line);
+        istringstream ss(line);
+        getline(ss>>std::ws, item, ' ');
+        getline(ss>>std::ws, item, ' ');
+
+        while (getline(ss>>std::ws, item, ' ')) {
+            sub.push_back(stoi(item));
+        }
+        (par->F).push_back(sub);
+        sub.clear();
+    }
+    file.close();
+}
+
+void analizeF() {
+    unordered_map<int, vector<int>> inSet;
+    for( int i=0; i<par->F.size(); i++ ) {
+        for( int e : par->F[i] ) {
+            par->chi.insert(e);
+            inSet[e].push_back(i);
+        }
+    }
+
+    par->n = par->chi.size();
+
+    par->nWX = (par->n)/(sizeof(ulong)*8);
+    if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
+    par->X = new ulong[par->nWX];
+    fill(par->X, par->X + par->nWX, 0);
+
+    int pos = 0;
+    par->mp = vector<item>(par->n);
+    for(pair<int, vector<int>> values : inSet){
+        setBit64(par->X, pos);
+        par->elem_pos[values.first] = pos;
+        par->mp[pos].value = values.first;
+        par->mp[pos].subSets = values.second;
+        par->mp[pos].rep = values.second.size();
+        pos++;
+    }
+
+    ulong *bset;
+    for( int i=0; i<par->F.size(); i++ ) {
+        bset = new ulong[par->nWX];
+        fill(bset, bset + par->nWX, 0);
+
+        for( int e : par->F[i] ) {
+            setBit64(bset, par->elem_pos[e]);
+            inSet[e].push_back(i);
+        }
+
+        par->bF.push_back(bset);
     }
 
     if(CHECK) {
-        printSubsets(par->bF);
-
-        for( vector<int> set : par->F ) {
-            for( int e : set ) {
-                cout << e << " ";
+        for(item mp_item : par->mp) {
+            cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
+            for (int index : mp_item.subSets) {
+                cout << index << " ";
             }
             cout << endl;
         }
     }
 
+    sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
+
+    if(CHECK) {
+        cout << "Universe elements = " << endl;
+        for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
+        cout << endl;
+        cout << "X = " << countSet(par->X) << endl;
+        cout << "n = " << par->n << endl;
+        cout << "F = " << par->bF.size() << endl;
+        cout << "m = " << par->m << endl;
+
+        for(item mp_item : par->mp) {
+            cout << " - " << mp_item.value << " - " << endl;
+            cout << mp_item.rep << " subsets." << endl;
+            // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+        }
+    }
 }
 
 void greedy() {
@@ -247,9 +337,13 @@ void exhaustive_sol() {
 
     //Búsqueda secuencial
     if(par->search == 0){
-        while(true) {
+        bool found = false;
+        while(!found) {
             if(PRINT) cout << "K = " << k << endl;
-            if ( kSol(0, k, chosenSets) ) break;
+            auto start = chrono::high_resolution_clock::now();
+            found = kSol(0, k, chosenSets);
+            auto end = chrono::high_resolution_clock::now();
+            cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
             //No se encuentra una solución de tamaño k, aumentamos en 1
             k++;
         }
@@ -261,8 +355,14 @@ void exhaustive_sol() {
     } else if(par->search == 2) {
         int exp = 1;
         int greedySize = par->greedy_sol.size() - par->unique_elements.size();
-        while(k <= greedySize && !kSol(0, k, chosenSets)) {
+        bool found = false;
+        while(k <= greedySize && !found) {
             cout << "K = " << k << endl;
+            auto start = chrono::high_resolution_clock::now();
+            found = kSol(0, k, chosenSets);
+            auto end = chrono::high_resolution_clock::now();
+            cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+            
             k += exp;
             exp *= 2;
         }
@@ -270,6 +370,7 @@ void exhaustive_sol() {
         //Realizar búsqueda binaria en un rango más pequeño
         int mi = k - exp/2 + 1;
         int ma = min(k-1, greedySize);
+        cout << "Search range for binary search: [" << mi << " - " << ma << "]" << endl;
         binarySearch(mi, mi, ma, chosenSets);
     }
 
@@ -302,20 +403,24 @@ bool kSol(int index, int k, vector<ulong*> chosenSets) {
     return false;
 }
 
+void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets) {
+    bool found;
+    while(mi <= ma) {
+        if(PRINT) cout << "K = " << m << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = kSol(0, m, chosenSets);
+        auto end = chrono::high_resolution_clock::now();
+        cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+        if (found) ma = m - 1;
+        else mi = m + 1;
+        m = mi + (ma - mi)/2;
+    }
+}
+
 void preprocess() {
     cout << "------------------------" << endl;
     cout << "Executing PreSetCover..." << endl;
     cout << "------------------------" << endl;
-    // Create a map structure for each element of the universe
-    createMap();
-    if(CHECK) {
-        for(item mp_item : par->mp) {
-            cout << " - " << mp_item.value << " - " << endl;
-            cout << mp_item.rep << " subsets." << endl;
-            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
-        }
-    }
-
     // Add uniques elements
     int setIndex;
     ulong* S;
@@ -340,25 +445,6 @@ void preprocess() {
     par->n = countSet(par->X);
     cout << "|X| = " << par->n << endl;
     cout << "|F| = " << par->m << endl;
-}
-
-void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets) {
-    while(mi <= ma) {
-        if(PRINT) cout << "K = " << m << endl;
-        if (kSol(0, m, chosenSets)) ma = m - 1;
-        else mi = m + 1;
-        m = mi + (ma - mi)/2;
-    }
-}
-
-void createMap() {
-    par->mp = vector<item>(par->n);
-    for(int i=0; i<par->n; i++) {
-        par->mp[i].value = i+1;
-        for( int j = 0; j<par->bF.size(); j++ ) if(getBit64(par->bF[j], i)) par->mp[i].subSets.push_back(j);
-        par->mp[i].rep = par->mp[i].subSets.size();
-    }
-    sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 }
 
 bool isCovered(vector<ulong*> chosenSets) {

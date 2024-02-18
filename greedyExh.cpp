@@ -8,13 +8,14 @@
 #include <cmath>
 #include <set>
 #include <map>
+#include <unordered_map>
 
 using namespace std;
 using namespace cds;
 
 #define PRINT 1
 #define CHECK 0
-#define MAX_F_SIZE 64
+#define MAX_F_SIZE 128
 
 typedef struct{
 	int value;
@@ -31,7 +32,7 @@ typedef struct {
     vector<ulong*> bF;
     vector<item> mp;
     vector<ulong*> greedy_sol;
-    vector<ulong*> greedy2_sol;
+    vector<ulong*> greedy_exh_sol;
     ulong sizeF, sizeNF;
 	ulong n, m, nWX;
 } ParProg;
@@ -39,14 +40,16 @@ typedef struct {
 ParProg* par;
 
 void readFile(string filename);
+void readFileScp(string filename);
+void readFilePartition(string filename);
+void analizeF();
 void preprocess();
 
 vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F);
 void greedyExh();
-vector<ulong*> findGreedySets(const ulong* X, ulong* elems, const vector<ulong*> &F);
-void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover);
-void createMap();
-ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C);
+vector<ulong*> findGreedySets(ulong* elems, const int k);
+void optimalSol(int i, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover);
+ulong* setsOfLength(const int l, vector<ulong*> &C);
 
 bool isCovered(const ulong* sumF, const ulong* X);
 int intersectionLength(const ulong* A, const ulong* B);
@@ -57,7 +60,6 @@ void printSubset(const ulong* C);
 void printSubsets(const vector<ulong*> &C);
 
 int main(int argc, char** argv) {
-
     if(argc !=2){
 		cout << "./greedy <filename>" << endl;
 		exit(EXIT_FAILURE);
@@ -66,9 +68,15 @@ int main(int argc, char** argv) {
     par = new ParProg();
 
     readFile(argv[1]);
+    auto start_time = chrono::high_resolution_clock::now();
+    analizeF();
+    auto end_time = chrono::high_resolution_clock::now();
+    auto dur_analyze = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
-    cout  << "X: " << par->n
+    if(PRINT) {
+        cout  << "X: " << par->n
         << " | F: " << par->m << endl;
+    }
 
     par->sizeF = par->m*sizeof(ulong)*par->n;
     par->sizeNF = par->m*sizeof(ulong)*par->nWX;
@@ -77,12 +85,22 @@ int main(int argc, char** argv) {
 	cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB" << endl;
 	cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
 
-    //SOL. CLASSIC GREEDY ALGORITHM
-    auto start_time = chrono::high_resolution_clock::now();
-    par->greedy_sol = greedy(par->X, par->bF);
-    auto end_time = chrono::high_resolution_clock::now();
+    if(CHECK) {
+        for(vector<int> set : par->F) {
+            for(int val : set) {
+                cout << val << " - ";
+            }
+            cout << endl;
+        }
 
-    auto durGreedy = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+        printSubsets(par->bF);
+    }
+
+    //SOL. CLASSIC GREEDY ALGORITHM
+    start_time = chrono::high_resolution_clock::now();
+    par->greedy_sol = greedy(par->X, par->bF);
+    end_time = chrono::high_resolution_clock::now();
+    auto dur_greedy = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
     if(CHECK) {
         cout << "SOL: " << endl;
@@ -93,29 +111,33 @@ int main(int argc, char** argv) {
     start_time = chrono::high_resolution_clock::now();
     preprocess();
     end_time = chrono::high_resolution_clock::now();
-	cout << "Duración en microsegundos: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count() << endl;
+    auto dur_preprocess = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
     //SOL. NEW GREEDY ALGORITHM
     start_time = chrono::high_resolution_clock::now();
     greedyExh();
     end_time = chrono::high_resolution_clock::now();
-
-    auto durGrExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    dur_greedyExh += dur_preprocess + dur_analyze;
 
     if(CHECK) {
         cout << "SOL: " << endl;
-        printSubsets(par->greedy2_sol);
+        printSubsets(par->greedy_exh_sol);
     }
     cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
-    cout << "Time [μs]: " << durGreedy << endl;
-    cout << "New Greedy Cardinality: " << par->greedy2_sol.size() << endl;
-    cout << "Time [μs]: " << durGrExh << endl;
-
+    cout << "Time [μs]: " << dur_greedy << endl;
+    cout << "Greedy Exhaustive Cardinality: " << par->greedy_exh_sol.size() << endl;
+    cout << "Time [μs]: " << dur_greedyExh << endl;
 
     return 0;
 }
 
 void readFile(string filename) {
+    if (filename.substr(0,3) == "scp") readFileScp(filename);
+    else readFilePartition(filename);
+}
+
+void readFileScp(string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "scp/" + filename;
     ifstream file(nametxt.c_str());
@@ -127,19 +149,9 @@ void readFile(string filename) {
     int i;
 
     //m & n
-	getline(file,line);
+	getline(file>>std::ws,line);
     istringstream ss(line);
     ss >> (par->n) >> (par->m);
-
-
-    par->nWX = (par->n)/(sizeof(ulong)*8);
-    if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-    par->X = new ulong[par->nWX]();
-    ulong* bset;
-    for (i = 0; i < par->m; i++) {
-        bset = new ulong[par->nWX]();
-        par->bF.push_back(bset);
-    }
 
     //Costs
     i = 0;
@@ -147,53 +159,136 @@ void readFile(string filename) {
     {
         getline(file>>std::ws,line);
         istringstream iss(line);
-        while (getline(iss, item, ' ')){i++;}
+        while (getline(iss>>std::ws, item, ' ')){i++;}
     }
-
 
     //Sets
     int numCover;
     int j;
+    par->F.resize(par->m);
     for(i=0; i<par->n; i++) {
         getline(file>>std::ws,line);
         numCover = stoi(line);
 
         j = 0;
-        setBit64(par->X, i);
         while(j < numCover){
             getline(file>>std::ws,line);
             istringstream iss(line);
             while (getline(iss, item, ' ')) {
-                setBit64(par->bF[stoi(item)-1], i); 
+                par->F[stoi(item)-1].push_back(i+1);
                 j++;
             }
         }
     }
+}
 
-    vector<int> set;
-    for ( ulong* ss : par->bF ) {
-        for( i=0; i<par->n; i++ ) if(getBit64(ss, i)) set.push_back(i+1);
-        par->F.push_back(set);
-        set.clear();
+void readFilePartition(string filename) {
+    if(PRINT) cout << "Reading file " << filename << "..." << endl;
+    string nametxt = "test_partition/" + filename;
+    ifstream file(nametxt.c_str());
+    if(file.fail()){
+        cout << "File not found!" << endl;
+        exit(EXIT_FAILURE);
+    }
+    string line,item;
+
+    //m & n
+	getline(file>>std::ws,line);
+    istringstream ss(line);
+    ss >> (par->n) >> (par->m);
+
+    //Sets
+    vector<int> sub;
+    for (int i = 0; i < par->m; i++) {
+        getline(file>>std::ws,line);
+        istringstream ss(line);
+        getline(ss>>std::ws, item, ' ');
+        getline(ss>>std::ws, item, ' ');
+
+        while (getline(ss>>std::ws, item, ' ')) {
+            sub.push_back(stoi(item));
+        }
+        (par->F).push_back(sub);
+        sub.clear();
+    }
+    file.close();
+}
+
+void analizeF() {
+    unordered_map<int, vector<int>> inSet;
+    for( int i=0; i<par->F.size(); i++ ) {
+        for( int e : par->F[i] ) {
+            par->chi.insert(e);
+            inSet[e].push_back(i);
+        }
+    }
+
+    par->n = par->chi.size();
+
+    par->nWX = (par->n)/(sizeof(ulong)*8);
+    if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
+    par->X = new ulong[par->nWX];
+    fill(par->X, par->X + par->nWX, 0);
+
+    int pos = 0;
+    par->mp = vector<item>(par->n);
+    for(pair<int, vector<int>> values : inSet){
+        setBit64(par->X, pos);
+        par->elem_pos[values.first] = pos;
+        par->mp[pos].value = values.first;
+        par->mp[pos].subSets = values.second;
+        par->mp[pos].rep = values.second.size();
+        pos++;
+    }
+
+    ulong *bset;
+    for( int i=0; i<par->F.size(); i++ ) {
+        bset = new ulong[par->nWX];
+        fill(bset, bset + par->nWX, 0);
+
+        for( int e : par->F[i] ) {
+            setBit64(bset, par->elem_pos[e]);
+            inSet[e].push_back(i);
+        }
+
+        par->bF.push_back(bset);
     }
 
     if(CHECK) {
-        printSubsets(par->bF);
-
-        for( vector<int> set : par->F ) {
-            for( int e : set ) {
-                cout << e << " ";
+        for(item mp_item : par->mp) {
+            cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
+            for (int index : mp_item.subSets) {
+                cout << index << " ";
             }
             cout << endl;
         }
     }
 
+    sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
+
+    if(CHECK) {
+        cout << "Universe elements = " << endl;
+        for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
+        cout << endl;
+        cout << "X = " << countSet(par->X) << endl;
+        cout << "n = " << par->n << endl;
+        cout << "F = " << par->bF.size() << endl;
+        cout << "m = " << par->m << endl;
+
+        for(item mp_item : par->mp) {
+            cout << " - " << mp_item.value << " - " << endl;
+            cout << mp_item.rep << " subsets." << endl;
+            // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+        }
+    }
 }
 
 vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F) {
-    cout << "-------------------------------------" << endl;
-    cout << "Executing classic greedy algorithm..." << endl;
-    cout << "-------------------------------------" << endl;
+    if(PRINT) {
+        cout << "-------------------------------------" << endl;
+        cout << "Executing classic greedy algorithm..." << endl;
+        cout << "-------------------------------------" << endl;
+    }
     int i;
     ulong* U = new ulong[par->nWX];
     for(i=0; i<par->nWX; i++) U[i] = X[i];
@@ -204,36 +299,6 @@ vector<ulong*> greedy(const ulong* X, const vector<ulong*> &F) {
     int lengthSS;
 
     while( countSet(U) > 0 ) {
-
-        for( i=0; i<subsets.size(); i++ ){
-            lengthSS = intersectionLength(U, subsets[i]);
-            if(lengthSS > maxLengthSS) {
-                maxLengthSS = lengthSS;
-                posSet = i;
-            }
-        }
-
-        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
-        C.push_back(subsets[posSet]);
-        subsets.erase(subsets.begin()+posSet);
-
-        maxLengthSS = 0;
-    }
-
-    return C;
-}
-
-vector<ulong*> findGreedySets(const ulong* X, ulong* elems, const vector<ulong*> &F) {
-    int i;
-    ulong* U = new ulong[par->nWX];
-    for(i=0; i<par->nWX; i++) U[i] = X[i];
-    vector<ulong*> subsets = F;
-    vector<ulong*> C;
-    int posSet;
-    int maxLengthSS = 0;
-    int lengthSS;
-
-    while( countSet(elems) > 0 ) {
         if(CHECK) cout << "POSIBLE SETS:" << endl;
         for( i=0; i<subsets.size(); i++ ){
             lengthSS = intersectionLength(U, subsets[i]);
@@ -252,13 +317,10 @@ vector<ulong*> findGreedySets(const ulong* X, ulong* elems, const vector<ulong*>
             for( pair<int, int> values : par->elem_pos ) if(getBit64(U, values.second)) cout << values.first << " ";
             cout << "}" << endl << "Best Set: { ";
             for( pair<int, int> values : par->elem_pos ) if(getBit64(subsets[posSet], values.second)) cout << values.first << " ";
-            cout << "}" <<endl;
+            cout << "} > " << maxLengthSS << endl;
         }
 
-        for(i=0; i<par->nWX; i++) {
-            U[i] = U[i] & ~subsets[posSet][i];
-            elems[i] = elems[i] & ~subsets[posSet][i];
-        }
+        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
         C.push_back(subsets[posSet]);
         subsets.erase(subsets.begin()+posSet);
 
@@ -268,13 +330,58 @@ vector<ulong*> findGreedySets(const ulong* X, ulong* elems, const vector<ulong*>
     return C;
 }
 
-void greedyExh(){
-    cout << "---------------------------------" << endl;
-    cout << "Executing new greedy algorithm..." << endl;
-    cout << "---------------------------------" << endl;
+vector<ulong*> findGreedySets(ulong* elems, const int k) {
+    int i;
+    vector<ulong*> subsets;
+    vector<ulong*> C;
+    int posSet;
+    int maxLengthSS = 0;
+    int lengthSS;
 
-    ulong* U = new ulong[par->nWX];
-    for(int i=0; i<par->nWX; i++) U[i] = par->X[i];
+    while( countSet(elems) > 0 ) {
+        if(CHECK) cout << "POSIBLE SETS:" << endl;
+        setsOfLength(k, subsets);
+        for( i=0; i<subsets.size(); i++ ){
+            lengthSS = intersectionLength(par->X, subsets[i]);
+            if(lengthSS > maxLengthSS) {
+                maxLengthSS = lengthSS;
+                posSet = i;
+            }
+            if(CHECK) {
+                for( pair<int, int> values : par->elem_pos ) if(getBit64(subsets[i], values.second)) cout << values.first << " ";
+                cout << " | " << lengthSS << endl;
+            }
+        }
+
+        if(CHECK) {
+            cout << "X = " << countSet(par->X) << ", { ";
+            for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
+            cout << "}" << endl << "Best Set: { ";
+            for( pair<int, int> values : par->elem_pos ) if(getBit64(subsets[posSet], values.second)) cout << values.first << " ";
+            cout << "}" <<endl;
+        }
+
+        for(i=0; i<par->nWX; i++) {
+            par->X[i] = par->X[i] & ~subsets[posSet][i];
+            elems[i] = elems[i] & ~subsets[posSet][i];
+        }
+        C.push_back(subsets[posSet]);
+
+        maxLengthSS = 0;
+    }
+
+    return C;
+}
+
+void greedyExh(){
+    if(PRINT) {
+        cout << "---------------------------------" << endl;
+        cout << "Executing new greedy algorithm..." << endl;
+        cout << "---------------------------------" << endl;
+    }
+
+    // ulong* U = new ulong[par->nWX];
+    // for(int i=0; i<par->nWX; i++) U[i] = par->X[i];
     int j;
     int k = par->mp[0].rep;
     vector<ulong*> subF;
@@ -285,43 +392,58 @@ void greedyExh(){
     vector<ulong*> chosenSets;
     vector<ulong*> minSetCover;
 
-    while(countSet(U) > 0) {
-        subU = setsOfLength(par->mp,k, subF);
-        sumF = unionF(subF);
-        for(j=0; j<par->nWX; j++) sumF[j] = sumF[j] & U[j];
+    while(countSet(par->X) > 0) {
+        subU = setsOfLength(k, subF);
 
         if(!subF.empty()){
 
-            if(PRINT) {
+            if(CHECK) {
+                cout << "Universe = { ";
+                    for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
+                    cout << "}" << endl;
+                cout << "Sets = " << endl;
+                for( ulong* set : subF ){
+                    cout << "{ ";
+                    for( pair<int, int> values : par->elem_pos ) if(getBit64(set, values.second)) cout << values.first << " ";
+                    cout << "}" << endl;
+                }
+            }
+
+            if(CHECK) {
                 cout << "Rep: " << k << endl;
-                cout << "U: " << countSet(U) << endl;
+                cout << "U: " << countSet(par->X) << endl;
                 cout << "SubU: " << countSet(subU) << endl;
-                cout << "SumF: " << countSet(sumF) << endl;
                 cout << "SubF: " << subF.size() << endl;
             }
 
-            if(countSet(sumF) <= MAX_F_SIZE) {
+            if(subF.size() <= MAX_F_SIZE) {
+                sort(subF.begin(), subF.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
                 minSetSize = par->m+1;
                 maxCover = 0;
-                optimalSol(0, sumF, subU, subF, chosenSets, minSetCover, minSetSize, maxCover);
+                optimalSol(0, subU, subF, chosenSets, minSetCover, minSetSize, maxCover);
                 chosenSets.clear();
             } else {
-                minSetCover = findGreedySets(sumF, subU, subF);
+                minSetCover = findGreedySets(subU, k);
             }
 
-            if(PRINT) {
+            if(CHECK) {
                 cout << "Sol. Exhaustiva: " << minSetCover.size() << endl;
+                for( ulong* set : minSetCover ){
+                    cout << "{ ";
+                    for( pair<int, int> values : par->elem_pos ) if(getBit64(set, values.second)) cout << values.first << " ";
+                    cout << "}" << endl;
+                }
                 cout << "----------------------" << endl;
             }
 
             for (ulong* S : minSetCover){
-                for(j=0; j<par->nWX; j++) U[j] = U[j] & ~S[j];
+                for(j=0; j<par->nWX; j++) par->X[j] = par->X[j] & ~S[j];
 
                 par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [S](const item& it) {
                     return find_if(it.subSets.begin(), it.subSets.end(), [=](const int& set) { return par->bF[set] == S; }) != it.subSets.end();
                 }), par->mp.end());
 
-                par->greedy2_sol.push_back(S);
+                par->greedy_exh_sol.push_back(S);
             }
 
             subF.clear();
@@ -332,7 +454,7 @@ void greedyExh(){
 
 }
 
-void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover) {
+void optimalSol(int i, const ulong* elems, const vector<ulong*> &F, vector<ulong*> chosenSets, vector<ulong*> &minSetCover, int &minSetSize, int &maxCover) {
     //Si ya no hay más conjuntos que agregar o si no hay una mejor solución por esta rama
     if(i == F.size() || chosenSets.size() >= minSetSize) return;
 
@@ -342,16 +464,16 @@ void optimalSol(int i, const ulong* X, const ulong* elems, const vector<ulong*> 
 
         //Verificar si se cubre el universo
         ulong* sumF = unionF(chosenSets);
-        int coveredElements = intersectionLength(X, sumF);
+        int coveredElements = intersectionLength(par->X, sumF);
         if(isCovered(sumF, elems) && (chosenSets.size() < minSetSize || coveredElements > maxCover)) {
-            if(PRINT) cout << "NEW MIN = " << chosenSets.size() << " maxCover = " << coveredElements << endl;
+            if(CHECK) cout << "NEW MIN = " << chosenSets.size() << " maxCover = " << coveredElements << endl;
             minSetSize = chosenSets.size();
             maxCover = coveredElements;
             minSetCover = chosenSets;
             delete[] sumF;
         } else {
             delete[] sumF;
-            optimalSol(j+1, X, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
+            optimalSol(j+1, elems, F, chosenSets, minSetCover, minSetSize, maxCover);
         }
         
         //No incluir el subconjunto
@@ -363,15 +485,6 @@ void preprocess() {
     cout << "------------------------" << endl;
     cout << "Executing PreSetCover..." << endl;
     cout << "------------------------" << endl;
-    // Create a map structure for each element of the universe
-    createMap();
-    if(CHECK) {
-        for(item mp_item : par->mp) {
-            cout << " - " << mp_item.value << " - " << endl;
-            cout << mp_item.rep << " subsets." << endl;
-            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
-        }
-    }
 
     // Add uniques elements
     int setIndex;
@@ -383,51 +496,47 @@ void preprocess() {
         // Eliminar subsets del map que no se usen
         for(int e : par->F[setIndex]) {
             par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
-            cleanBit64(par->X,e-1);
+            cleanBit64(par->X,par->elem_pos[e]);
         }
 
-        par->greedy2_sol.push_back(S);
+        par->greedy_exh_sol.push_back(S);
     }
 
-    cout << "Added " << par->greedy2_sol.size() << " subsets " << endl; 
-    cout << "|X| = " << countSet(par->X) << endl;
+    if(PRINT) {
+        cout << "Added " << par->greedy_exh_sol.size() << " subsets " << endl; 
+        cout << "|X| = " << countSet(par->X) << endl;
+    }
 
     if(CHECK) {
         cout << "----------------------" << endl;
         for(item mp_item : par->mp) {
             cout << " - " << mp_item.value << " - " << endl;
             cout << mp_item.rep << " subsets." << endl;
-            for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+            for (int setIndex : mp_item.subSets) cout << setIndex << " ";
+            cout << endl;
+            // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
         }
     }
 }
 
-void createMap() {
-    par->mp = vector<item>(par->n);
-    for(int i=0; i<par->n; i++) {
-        par->mp[i].value = i+1;
-        for( int j = 0; j<par->bF.size(); j++ ) if(getBit64(par->bF[j], i)) par->mp[i].subSets.push_back(j);
-        par->mp[i].rep = par->mp[i].subSets.size();
-    }
-    sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
-}
-
-ulong* setsOfLength(const vector<item> &mp, const int l, vector<ulong*> &C) {
+ulong* setsOfLength(const int l, vector<ulong*> &C) {
     ulong* subU= new ulong[par->nWX];
     fill(subU, subU + par->nWX, 0);
     int i=0;
-    while (i < mp.size() && mp[i].rep == l) {
-        for (int index : mp[i].subSets){
-            ulong* S = par->bF[index];
-            if(find(C.begin(), C.end(), S) == C.end()) {
-                C.push_back(S);
+    while (i < par->mp.size() && par->mp[i].rep == l) {
+        if(checkBit(par->X, par->elem_pos[par->mp[i].value])) {
+            for (int index : par->mp[i].subSets){
+                ulong* S = par->bF[index];
+                if(find(C.begin(), C.end(), S) == C.end()) {
+                    C.push_back(S);
+                }
             }
+            setBit64(subU, par->elem_pos[par->mp[i].value]);
         }
-        setBit64(subU, mp[i].value-1);
         i++;
     }
     
-    sort(C.begin(), C.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
+    // sort(C.begin(), C.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
 
     return subU;
 }
