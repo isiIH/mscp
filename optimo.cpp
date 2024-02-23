@@ -176,6 +176,7 @@ void readFileScp(string filename) {
             }
         }
     }
+    file.close();
 }
 
 void readFilePartition(string filename) {
@@ -390,7 +391,7 @@ bool kSol(int index, int k, vector<ulong*> chosenSets) {
         return false;
     }
 
-    for (int j = index; j<par->bF.size()-k+1; j++) {
+    for (int j = index; j<par->m-k+1; j++) {
         //Incluir el subconjunto
         chosenSets.push_back(par->bF[j]);
 
@@ -431,7 +432,7 @@ void preprocess() {
         // Eliminar subsets del map que no se usen
         for(int e : par->F[setIndex]) {
             par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
-            cleanBit64(par->X,e-1);
+            cleanBit64(par->X,par->elem_pos[e]);
         }
         par->unique_elements.push_back(S);
     }

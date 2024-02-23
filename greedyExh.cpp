@@ -25,7 +25,7 @@ typedef struct{
 
 // Structure with all globals parameters program
 typedef struct {
-	vector<vector<int>> F;
+	vector<set<int>> F;
     set<int> chi;
     map<int,int> elem_pos;
 	ulong* X;
@@ -86,8 +86,8 @@ int main(int argc, char** argv) {
 	cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
 
     if(CHECK) {
-        for(vector<int> set : par->F) {
-            for(int val : set) {
+        for(set<int> sub : par->F) {
+            for(int val : sub) {
                 cout << val << " - ";
             }
             cout << endl;
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
 
     //SOL. CLASSIC GREEDY ALGORITHM
     start_time = chrono::high_resolution_clock::now();
-    par->greedy_sol = greedy(par->X, par->bF);
+    // par->greedy_sol = greedy(par->X, par->bF);
     end_time = chrono::high_resolution_clock::now();
     auto dur_greedy = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
@@ -175,11 +175,12 @@ void readFileScp(string filename) {
             getline(file>>std::ws,line);
             istringstream iss(line);
             while (getline(iss, item, ' ')) {
-                par->F[stoi(item)-1].push_back(i+1);
+                par->F[stoi(item)-1].insert(i+1);
                 j++;
             }
         }
     }
+    file.close();
 }
 
 void readFilePartition(string filename) {
@@ -198,7 +199,7 @@ void readFilePartition(string filename) {
     ss >> (par->n) >> (par->m);
 
     //Sets
-    vector<int> sub;
+    set<int> sub;
     for (int i = 0; i < par->m; i++) {
         getline(file>>std::ws,line);
         istringstream ss(line);
@@ -206,7 +207,7 @@ void readFilePartition(string filename) {
         getline(ss>>std::ws, item, ' ');
 
         while (getline(ss>>std::ws, item, ' ')) {
-            sub.push_back(stoi(item));
+            sub.insert(stoi(item));
         }
         (par->F).push_back(sub);
         sub.clear();
@@ -216,9 +217,11 @@ void readFilePartition(string filename) {
 
 void analizeF() {
     unordered_map<int, vector<int>> inSet;
+    unordered_map<int,int> cont;
     for( int i=0; i<par->F.size(); i++ ) {
         for( int e : par->F[i] ) {
             par->chi.insert(e);
+            cont[e]++;
             inSet[e].push_back(i);
         }
     }
@@ -232,12 +235,12 @@ void analizeF() {
 
     int pos = 0;
     par->mp = vector<item>(par->n);
-    for(pair<int, vector<int>> values : inSet){
+    for(pair<int, int> values : cont){
         setBit64(par->X, pos);
         par->elem_pos[values.first] = pos;
         par->mp[pos].value = values.first;
-        par->mp[pos].subSets = values.second;
-        par->mp[pos].rep = values.second.size();
+        par->mp[pos].subSets = inSet[values.first];
+        par->mp[pos].rep = values.second;
         pos++;
     }
 
@@ -380,8 +383,6 @@ void greedyExh(){
         cout << "---------------------------------" << endl;
     }
 
-    // ulong* U = new ulong[par->nWX];
-    // for(int i=0; i<par->nWX; i++) U[i] = par->X[i];
     int j;
     int k = par->mp[0].rep;
     vector<ulong*> subF;
@@ -520,6 +521,7 @@ void preprocess() {
 }
 
 ulong* setsOfLength(const int l, vector<ulong*> &C) {
+    C.clear();
     ulong* subU= new ulong[par->nWX];
     fill(subU, subU + par->nWX, 0);
     int i=0;
@@ -535,7 +537,7 @@ ulong* setsOfLength(const int l, vector<ulong*> &C) {
         }
         i++;
     }
-    
+
     // sort(C.begin(), C.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
 
     return subU;
