@@ -15,7 +15,7 @@ using namespace cds;
 
 #define PRINT 1
 #define CHECK 0
-#define MAX_F_SIZE 128
+#define MAX_F_SIZE 32
 
 typedef struct{
 	int value;

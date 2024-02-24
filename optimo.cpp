@@ -47,7 +47,7 @@ void analizeF();
 void preprocess();
 
 bool kSol(int i, int k, vector<ulong*> chosenSets);
-void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets);
+void binarySearch(int mi, int ma, vector<ulong*> &chosenSets);
 
 void exhaustive_sol();
 void greedy();
@@ -351,7 +351,7 @@ void exhaustive_sol() {
     //Búsqueda binaria
     } else if(par->search == 1) {
         int ma = par->greedy_sol.size() - par->unique_elements.size();
-        binarySearch(k, k, ma, chosenSets);
+        binarySearch(k, ma, chosenSets);
     //Búsqueda exponencial
     } else if(par->search == 2) {
         int exp = 1;
@@ -372,7 +372,7 @@ void exhaustive_sol() {
         int mi = k - exp/2 + 1;
         int ma = min(k-1, greedySize);
         cout << "Search range for binary search: [" << mi << " - " << ma << "]" << endl;
-        binarySearch(mi, mi, ma, chosenSets);
+        binarySearch(mi, ma, chosenSets);
     }
 
     par->exh_sol.insert(par->exh_sol.end(), par->unique_elements.begin(), par->unique_elements.end());
@@ -404,7 +404,8 @@ bool kSol(int index, int k, vector<ulong*> chosenSets) {
     return false;
 }
 
-void binarySearch(int m, int mi, int ma, vector<ulong*> &chosenSets) {
+void binarySearch(int mi, int ma, vector<ulong*> &chosenSets) {
+    int m = mi;
     bool found;
     while(mi <= ma) {
         if(PRINT) cout << "K = " << m << endl;
