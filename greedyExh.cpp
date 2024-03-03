@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
 
     //SOL. CLASSIC GREEDY ALGORITHM
     start_time = chrono::high_resolution_clock::now();
-    // par->greedy_sol = greedy(par->X, par->bF);
+    par->greedy_sol = greedy(par->X, par->bF);
     end_time = chrono::high_resolution_clock::now();
     auto dur_greedy = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 

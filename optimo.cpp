@@ -109,7 +109,11 @@ int main(int argc, char** argv) {
     auto dur_preprocess = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
     //GREEDY
+    start_time = chrono::high_resolution_clock::now();
     greedy();
+    end_time = chrono::high_resolution_clock::now();
+    auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    dur_greedyExh += dur_preprocess + dur_analyze;
 
     //NEW EXHAUSTIVE ALGORITHM
     start_time = chrono::high_resolution_clock::now();
@@ -122,6 +126,8 @@ int main(int argc, char** argv) {
         cout << "SOL: " << endl;
         printSubsets(par->exh_sol);
     }
+    cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
+    cout << "Time [μs]: " << dur_greedyExh << endl;
 	cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
     cout << "Time [μs]: " << dur_opt << endl;
 
@@ -364,8 +370,10 @@ void exhaustive_sol() {
             auto end = chrono::high_resolution_clock::now();
             cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
             
-            k += exp;
-            exp *= 2;
+            if(!found){
+                k += exp;
+                exp *= 2;
+            }
         }
 
         //Realizar búsqueda binaria en un rango más pequeño
