@@ -25,6 +25,7 @@ typedef struct{
 // Structure with all globals parameters program
 typedef struct {
     int search;
+    int k = 0;
 	ulong* X;
 	vector<vector<int>> F;
     set<int> chi;
@@ -47,7 +48,10 @@ void analizeF();
 void preprocess();
 
 bool kSol(int i, int k, vector<ulong*> chosenSets);
-void binarySearch(int mi, int ma, vector<ulong*> &chosenSets);
+void linearSearch();
+void binarySearch(int l, int r);
+void exponentialSearch();
+void reverseSearch();
 
 void exhaustive_sol();
 void greedy();
@@ -69,8 +73,8 @@ int main(int argc, char** argv) {
 
     par = new ParProg();
     par->search = atoi(argv[2]);
-    if(par->search < 0 || par->search > 2){
-        cout << "Invalid Search Type!\n0: Secuential Search\n1: Binary Search\n2: Exponential Search" << endl;
+    if(par->search < 0 || par->search > 3){
+        cout << "Invalid Search Type!\n0: Secuential Search\n1: Binary Search\n2: Exponential Search\n3: Reverse Search" << endl;
         exit(EXIT_FAILURE);
     }
 
@@ -320,11 +324,10 @@ void exhaustive_sol() {
     cout << "-----------------------------------------------------------" << endl;
     cout << "Executing new exhaustive algorithm";
     switch (par->search) {
-        case 0: cout << " with sequential search..." << endl;
-        break;
-        case 1: cout << " with binary search..." << endl;
-        break;
-        case 2: cout << " with exponential search..." << endl;
+        case 0: cout << " with sequential search..." << endl; break;
+        case 1: cout << " with binary search..." << endl; break;
+        case 2: cout << " with exponential search..." << endl; break;
+        case 3: cout << " with reverse search..." << endl; break;
     }
     cout << "-----------------------------------------------------------" << endl;
 
@@ -332,57 +335,24 @@ void exhaustive_sol() {
     vector<ulong*> Fsort = par->bF;
     sort(Fsort.begin(), Fsort.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
     int minSS = 0;
-    int k = 0;
     while(minSS < par->n) {
-        minSS += countSet(Fsort[k]);
-        k++;
+        minSS += countSet(Fsort[par->k]);
+        par->k++;
     }
 
     //Iterar desde K hasta encontrar el óptimo
-    vector<ulong*> chosenSets;
-    cout << "Search Range = [" << k << " - " << par->greedy_sol.size() - par->unique_elements.size() << "]" << endl;
+    cout << "Search Range = [" << par->k << " - " << par->greedy_sol.size() - par->unique_elements.size() << "]" << endl;
 
-    //Búsqueda secuencial
-    if(par->search == 0){
-        bool found = false;
-        while(!found) {
-            if(PRINT) cout << "K = " << k << endl;
-            auto start = chrono::high_resolution_clock::now();
-            found = kSol(0, k, chosenSets);
-            auto end = chrono::high_resolution_clock::now();
-            cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
-            //No se encuentra una solución de tamaño k, aumentamos en 1
-            k++;
-        }
-    //Búsqueda binaria
-    } else if(par->search == 1) {
-        int ma = par->greedy_sol.size() - par->unique_elements.size();
-        binarySearch(k, ma, chosenSets);
-    //Búsqueda exponencial
-    } else if(par->search == 2) {
-        int exp = 1;
-        int greedySize = par->greedy_sol.size() - par->unique_elements.size();
-        bool found = false;
-        while(k <= greedySize && !found) {
-            cout << "K = " << k << endl;
-            auto start = chrono::high_resolution_clock::now();
-            found = kSol(0, k, chosenSets);
-            auto end = chrono::high_resolution_clock::now();
-            cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
-            
-            if(!found){
-                k += exp;
-                exp *= 2;
-            }
-        }
-
-        //Realizar búsqueda binaria en un rango más pequeño
-        int mi = k - exp/2 + 1;
-        int ma = min(k-1, greedySize);
-        cout << "Search range for binary search: [" << mi << " - " << ma << "]" << endl;
-        binarySearch(mi, ma, chosenSets);
+    switch (par->search) {
+        case 0: //Búsqueda secuencial
+            linearSearch(); break;
+        case 1: //Búsqueda binaria
+            binarySearch(par->k, (par->greedy_sol.size() - par->unique_elements.size())); break;
+        case 2: //Búsqueda exponencial
+            exponentialSearch(); break;
+        case 3: //Búsqueda secuencial inversa (greedy--)
+            reverseSearch(); break;
     }
-
     par->exh_sol.insert(par->exh_sol.end(), par->unique_elements.begin(), par->unique_elements.end());
 }
 
@@ -412,18 +382,78 @@ bool kSol(int index, int k, vector<ulong*> chosenSets) {
     return false;
 }
 
-void binarySearch(int mi, int ma, vector<ulong*> &chosenSets) {
-    int m = mi;
+void linearSearch() {
+    vector<ulong*> chosenSets;
+    bool found = false;
+    while(!found) {
+        if(PRINT) cout << "K = " << par->k << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = kSol(0, par->k, chosenSets);
+        auto end = chrono::high_resolution_clock::now();
+        if(PRINT) cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+        //No se encuentra una solución de tamaño k, aumentamos en 1
+        par->k++;
+        chosenSets.clear();
+    }
+}
+
+void binarySearch(int l, int r) {
+    vector<ulong*> chosenSets;
+    int m = l;
     bool found;
-    while(mi <= ma) {
+    while(l <= r) {
         if(PRINT) cout << "K = " << m << endl;
         auto start = chrono::high_resolution_clock::now();
         found = kSol(0, m, chosenSets);
         auto end = chrono::high_resolution_clock::now();
+        cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl << endl;
+        if (found) r = m - 1;
+        else l = m + 1;
+        m = l + (r - l)/2;
+        chosenSets.clear();
+    }
+}
+
+void exponentialSearch() {
+    vector<ulong*> chosenSets;
+    int exp = 1;
+    int greedySize = par->greedy_sol.size() - par->unique_elements.size();
+    bool found = false;
+
+    while(par->k <= greedySize && !found) {
+        cout << "K = " << par->k << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = kSol(0, par->k, chosenSets);
+        auto end = chrono::high_resolution_clock::now();
         cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
-        if (found) ma = m - 1;
-        else mi = m + 1;
-        m = mi + (ma - mi)/2;
+        
+        if(!found){
+            par->k += exp;
+            exp *= 2;
+        }
+        chosenSets.clear();
+    }
+
+    //Realizar búsqueda binaria en un rango más pequeño
+    int l = par->k - exp/2 + 1;
+    int r = min(par->k-1, greedySize);
+    cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
+    binarySearch(l, r);
+}
+
+void reverseSearch() {
+    vector<ulong*> chosenSets;
+    bool found = true;
+    int k = par->greedy_sol.size() - par->unique_elements.size();
+    while(found) {
+        if(PRINT) cout << "K = " << k << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = kSol(0, k, chosenSets);
+        auto end = chrono::high_resolution_clock::now();
+        if(PRINT) cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+        //No se encuentra una solución de tamaño k, disminuimos en 1
+        k--;
+        chosenSets.clear();
     }
 }
 
