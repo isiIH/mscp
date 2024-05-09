@@ -151,7 +151,7 @@ void readFile(string filename) {
 
 void readFileScp(string filename) {
     cout << "Reading file " << filename << "..." << endl;
-    string nametxt = "scp/" + filename;
+    string nametxt = "test_scp/" + filename;
     ifstream file(nametxt.c_str());
     if(file.fail()){
         cout << "File not found!" << endl;
@@ -374,7 +374,7 @@ bool recursive_combinations(bool &found, int index, int k, vector<ulong*>& chose
         
         //Verificar si se cubre el universo
         if(isCovered(chosenSets)) {
-            #pragma omp critical 
+            #pragma omp critical
             {
                 printf("Solution found!\n");
                 par->exh_sol = chosenSets;
