@@ -9,6 +9,7 @@
 #include <set>
 #include <map>
 #include <unordered_map>
+#include <omp.h>
 
 using namespace std;
 using namespace cds;
@@ -37,6 +38,7 @@ typedef struct {
     vector<ulong*> exh_sol;
     ulong sizeF, sizeNF;
 	ulong n, m, nWX;
+    int nt;
 } ParProg;
 
 ParProg* par;
@@ -47,7 +49,8 @@ void readFilePartition(string filename);
 void analizeF();
 void preprocess();
 
-bool kSol(int i, int k, vector<ulong*> chosenSets);
+bool generate_combinations(int k);
+bool recursive_combinations(bool &found, int index, int k, vector<ulong*>& chosenSets);
 void linearSearch();
 void binarySearch(int l, int r);
 void exponentialSearch();
@@ -66,8 +69,8 @@ void printSubsets(const vector<ulong*> &C);
 
 int main(int argc, char** argv) {
 
-    if(argc !=3){
-		cout << "./opt <filename> <search>" << endl;
+    if(argc !=4){
+		cout << "./opt <filename> <search> <nt>" << endl;
 		exit(EXIT_FAILURE);
 	}
 
@@ -79,6 +82,8 @@ int main(int argc, char** argv) {
     }
 
     readFile(argv[1]);
+    par->nt = atoi(argv[3]);
+    omp_set_num_threads(par->nt);
     auto start_time = chrono::high_resolution_clock::now();
     analizeF();
     auto end_time = chrono::high_resolution_clock::now();
@@ -130,10 +135,11 @@ int main(int argc, char** argv) {
         cout << "SOL: " << endl;
         printSubsets(par->exh_sol);
     }
+    cout << "------------------------" << endl;
     cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
-    cout << "Time [μs]: " << dur_greedyExh << endl;
+    cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
 	cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
-    cout << "Time [μs]: " << dur_opt << endl;
+    cout << "Time [s]: " << dur_opt/1000000.0 << endl;
 
     return 0;
 }
@@ -356,82 +362,114 @@ void exhaustive_sol() {
     par->exh_sol.insert(par->exh_sol.end(), par->unique_elements.begin(), par->unique_elements.end());
 }
 
-bool kSol(int index, int k, vector<ulong*> chosenSets) {
-    //|chosenSets| = k 
+bool recursive_combinations(bool &found, int index, int k, vector<ulong*>& chosenSets) {
+    if(found) return false;
     if(k == 0) {
+        // for(ulong* set : chosenSets) {
+        //     printf("{ ");
+        //     for( pair<int, int> values : par->elem_pos ) if(getBit64(set, values.second)) printf("%d ",values.first);
+        //     printf("}\n");
+        // }
+        // printf("\n");
+        
         //Verificar si se cubre el universo
         if(isCovered(chosenSets)) {
-            cout << "Solution found with K = " << chosenSets.size() << endl;
-            // for(ulong* S : chosenSets) par->exh_sol.push_back(S);
-            par->exh_sol = chosenSets;
+            #pragma omp critical 
+            {
+                printf("Solution found!\n");
+                par->exh_sol = chosenSets;
+            }
             return true;
         }
         return false;
     }
 
-    for (int j = index; j<par->m-k+1; j++) {
-        //Incluir el subconjunto
-        chosenSets.push_back(par->bF[j]);
-
-        if ( kSol(j+1, k-1, chosenSets) ) return true;
-        
-        //No incluir el subconjunto
+    for (int i = index; i<par->m-k+1; i++) {
+        chosenSets.push_back(par->bF[i]);
+        if(recursive_combinations(found, i+1, k-1, chosenSets)) return true;
         chosenSets.pop_back();
     }
 
     return false;
 }
 
+bool generate_combinations(int k) {
+    bool found = false;
+    // Cálculo del chunksize: número de iteraciones dividido por la cantidad de núcleos
+    // Se prefirió dejar chunk_size como 1 ya que la carga de trabajo es desequilibrada, así se puede aprovechar el dinamismo
+    // int chunk_size = (par->m-k+1)/par->nt;
+    // if((par->m-k+1)%par->nt != 0) chunk_size++;
+    // printf("Chunk-size = %d\n", chunk_size);
+
+    #pragma omp parallel default(none) shared(par, k, found)
+    {
+        #pragma omp for schedule(dynamic, 1)
+        for (int i = 0; i < par->m-k+1; i++) {
+            printf("i = %d\n", i);
+            vector<ulong*> data;
+            data.push_back(par->bF[i]);
+            if(recursive_combinations(found, i+1, k-1, data)) {
+                #pragma omp critical 
+                {
+                    found = true;
+                }
+                #pragma omp cancel for
+            }
+            #pragma omp cancellation point for
+            data.pop_back();
+        }
+    }
+
+    return found;
+}
+
 void linearSearch() {
-    vector<ulong*> chosenSets;
+    double start, end;
     bool found = false;
     while(!found) {
         if(PRINT) cout << "K = " << par->k << endl;
-        auto start = chrono::high_resolution_clock::now();
-        found = kSol(0, par->k, chosenSets);
-        auto end = chrono::high_resolution_clock::now();
-        if(PRINT) cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+        start = omp_get_wtime();
+        found = generate_combinations(par->k);
+        end = omp_get_wtime();
+        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
         //No se encuentra una solución de tamaño k, aumentamos en 1
         par->k++;
-        chosenSets.clear();
     }
 }
 
 void binarySearch(int l, int r) {
-    vector<ulong*> chosenSets;
+    double start, end;
     int m = l;
     bool found;
     while(l <= r) {
         if(PRINT) cout << "K = " << m << endl;
-        auto start = chrono::high_resolution_clock::now();
-        found = kSol(0, m, chosenSets);
-        auto end = chrono::high_resolution_clock::now();
-        cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+        start = omp_get_wtime();
+        found = generate_combinations(m);
+        end = omp_get_wtime();
+        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
         if (found) r = m - 1;
         else l = m + 1;
         m = l + (r - l)/2;
-        chosenSets.clear();
     }
 }
 
 void exponentialSearch() {
-    vector<ulong*> chosenSets;
+    double start, end;
     int exp = 1;
     int greedySize = par->greedy_sol.size() - par->unique_elements.size();
     bool found = false;
 
     while(par->k <= greedySize && !found) {
         cout << "K = " << par->k << endl;
-        auto start = chrono::high_resolution_clock::now();
-        found = kSol(0, par->k, chosenSets);
-        auto end = chrono::high_resolution_clock::now();
-        cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+        start = omp_get_wtime();
+        found = generate_combinations(par->k);
+        end = omp_get_wtime();
+        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
         
         if(!found){
             par->k += exp;
             exp *= 2;
         }
-        chosenSets.clear();
     }
 
     //Realizar búsqueda binaria en un rango más pequeño
@@ -442,18 +480,17 @@ void exponentialSearch() {
 }
 
 void reverseSearch() {
-    vector<ulong*> chosenSets;
+    double start, end;
     bool found = true;
     int k = par->greedy_sol.size() - par->unique_elements.size();
-    while(found) {
+    while(k >= par->k && found) {
         if(PRINT) cout << "K = " << k << endl;
-        auto start = chrono::high_resolution_clock::now();
-        found = kSol(0, k, chosenSets);
-        auto end = chrono::high_resolution_clock::now();
-        if(PRINT) cout << "Time [μs]: " << chrono::duration_cast<chrono::microseconds>(end - start).count() << endl;
+        start = omp_get_wtime();
+        found = generate_combinations(k);
+        end = omp_get_wtime();
+        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
         //No se encuentra una solución de tamaño k, disminuimos en 1
         k--;
-        chosenSets.clear();
     }
 }
 

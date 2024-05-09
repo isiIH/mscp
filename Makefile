@@ -1,16 +1,12 @@
 CPP=g++ -std=c++11
-CPPFLAGS=-O3 -DVERBOSE
+CPPFLAGS=-O3 -DVERBOSE -fopenmp
 INCLUDES=-I./include/
-GREEDYBW=./include/BasicCDS.cpp greedyExh.cpp
 OPTBW=./include/BasicCDS.cpp optimo.cpp
-BINS=greedyExh opt
+BINS=opt
 
-all: clean greedyExh exhaustive
+all: clean optimo
 
-greedyExh: greedyExh.cpp
-	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o greedyExh $(GREEDYBW)
-
-exhaustive: optimo.cpp
+optimo: optimo.cpp
 	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o opt $(OPTBW)
 
 clean:
