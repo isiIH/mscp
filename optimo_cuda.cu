@@ -15,9 +15,9 @@ using namespace std;
 using namespace cds;
 
 #define PRINT 1
-#define CHECK 1
+#define CHECK 0
 
-#define BS 256
+#define BS 1024
 
 typedef struct{
 	int value;
@@ -37,7 +37,7 @@ typedef struct {
     vector<item> mp;
     vector<ulong*> unique_elements;
     vector<ulong*> greedy_sol;
-    ulong** exh_sol;
+    vector<ulong*> exh_sol;
     ulong sizeF, sizeNF;
 	ulong n, m, nWX;
     int nt;
@@ -60,10 +60,10 @@ void exhaustive_sol();
 void greedy();
 
 __device__ int coefBin(int n, int k);
-__global__ void generateCombinationsKernel(int n, int k, int* d_combinations, int combCount);
-// __global__ void generateCombinationsKernel(int n, int k, ulong** d_combinations, int nX, ulong nWX, ulong combCount, ulong**sol);
+__global__ void generateCombinationsKernel(int m, int k, ulong* d_combinations, ulong* X, ulong* sol, int nWX, ulong combCount, bool* found);
+__device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX);
+bool launchKernel(int k);
 
-__device__ bool isCovered(ulong** chosenSets, int k, int n, ulong nWX);
 int countSet(const ulong* S);
 int intersectionLength(const ulong* A, const ulong* B);
 
@@ -133,15 +133,13 @@ int main(int argc, char** argv) {
     dur_opt += dur_preprocess + dur_analyze;
 
     if(CHECK) {
-        // cout << "SOL: " << endl;
-        // for(int i=0; i<par->k; i++) {
-        //     printSubset(par->exh_sol[i]);
-        // }
+        cout << "SOL: " << endl;
+        printSubsets(par->exh_sol);
     }
     cout << "------------------------" << endl;
     cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
     cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
-	cout << "Optimal Cardinality: " << par->k << endl;
+	cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
     cout << "Time [s]: " << dur_opt/1000000.0 << endl;
 
     return 0;
@@ -329,6 +327,13 @@ void greedy() {
     par->greedy_sol = C;
 }
 
+void checkCudaError(cudaError_t result, const char* msg) {
+    if (result != cudaSuccess) {
+        cerr << msg << ": " << cudaGetErrorString(result) << endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
 void exhaustive_sol() {
     cout << "-----------------------------------------------------------" << endl;
     cout << "Executing new exhaustive algorithm";
@@ -353,8 +358,23 @@ void exhaustive_sol() {
     int max_k = par->greedy_sol.size() - par->unique_elements.size();
     cout << "Search Range = [" << par->k << " - " << max_k << "]" << endl;
 
+    switch (par->search) {
+        case 0: //Búsqueda secuencial
+            linearSearch(); break;
+        case 1: //Búsqueda binaria
+            binarySearch(par->k, max_k); break;
+        case 2: //Búsqueda exponencial
+            exponentialSearch(); break;
+        case 3: //Búsqueda secuencial inversa (greedy--)
+            reverseSearch(); break;
+    }
+    par->exh_sol.insert(par->exh_sol.end(), par->unique_elements.begin(), par->unique_elements.end());
+}
+
+bool launchKernel(int k) {
+    //Calcular num combinaciones
     ulong combCount = 1;
-    for(int i=0; i<par->k; i++) {
+    for(int i=0; i<k; i++) {
         combCount *= (par->m-i);
         combCount /= (i+1);
     }
@@ -363,85 +383,90 @@ void exhaustive_sol() {
     dim3 threadsPerBlock(BS);
     dim3 numBlocks((combCount + BS -1) / BS);
 
-    int* d_combinations;
-    cudaMalloc(&d_combinations, combCount * par->k * sizeof(int));
+    cout << "tpb: " << BS << endl;
+    cout << "num_blocks: " << (combCount + BS -1) / BS << endl;
 
-    generateCombinationsKernel<<<numBlocks, threadsPerBlock>>>(par->m, par->k, d_combinations, combCount);
-    cudaDeviceSynchronize();
+    int uSize = par->nWX * sizeof(ulong);
+    int fSize = par->m * uSize;
+    int solSize = k * uSize;
 
-    int* h_combinations = new int[combCount * par->k];
-    cudaMemcpy(h_combinations, d_combinations, combCount * par->k * sizeof(int), cudaMemcpyDeviceToHost);
+    cout << "uSize: " << uSize << endl;
+    cout << "fSize: " << fSize << endl;
+    cout << "solSize: " << solSize << endl;
 
-    for (int i = 0; i < combCount; ++i) {
-        for (int j = 0; j < par->k; ++j) {
-            std::cout << h_combinations[i * par->k + j] << " ";
-        }
-        std::cout << "\n";
+    // Family of subsets
+    ulong* d_comb;
+    checkCudaError(cudaMalloc(&d_comb, fSize), "Failed to allocate device memory for d_comb");
+    for (int i = 0; i < par->m; i++) {
+        checkCudaError(cudaMemcpy(&d_comb[i * par->nWX], par->bF[i], uSize, cudaMemcpyHostToDevice), "Failed to copy data from host to device");
     }
 
-    delete[] h_combinations;
-    cudaFree(d_combinations);
+    // Universe
+    ulong* d_X;
+    checkCudaError(cudaMalloc(&d_X, uSize), "Failed to allocate device memory for d_X");
+    checkCudaError(cudaMemcpy(d_X, par->X, uSize, cudaMemcpyHostToDevice), "Failed to copy data from host to device");
 
-    // ulong** d_comb;
-    // ulong** sol;
-    // cudaMalloc((void**)&d_comb, sizeof(ulong*) * par->m);
-    // cudaMalloc((void**)&sol, sizeof(ulong*) * max_k);
+    // Solution mscp
+    ulong* h_sol = new ulong[k*par->nWX];
+    ulong* d_sol;
+    checkCudaError(cudaMalloc(&d_sol, solSize), "Failed to allocate device memory for d_sol");
 
-    // for (int i = 0; i < par->m; i++) {
-    //     cudaMalloc((void**)&d_comb[i], par->nWX * sizeof(ulong));
-    //     cudaMemcpy(d_comb[i], par->bF[i], par->nWX * sizeof(ulong), cudaMemcpyHostToDevice);
-    // }
-    // for (int i = 0; i < max_k; i++) {
-    //     cudaMalloc((void**)&sol[i], par->nWX * sizeof(ulong));
-    // }
+    //found
+    bool* d_found;
+    checkCudaError(cudaMalloc(&d_found, sizeof(bool)), "Failed to allocate device memory for d_found");
+    checkCudaError(cudaMemset(d_found, 0, sizeof(bool)), "Failed to set device memory for d_found");
 
-    // generateCombinationsKernel<<<numBlocks, threadsPerBlock>>>(par->m, par->k, d_comb, par->n, par->nWX, combCount, sol);
-    // cudaDeviceSynchronize();
+    generateCombinationsKernel<<<numBlocks, threadsPerBlock>>>(par->m, k, d_comb, d_X, d_sol, par->nWX, combCount, d_found);
+    checkCudaError(cudaDeviceSynchronize(), "Kernel execution failed");
 
-    // for (int i = 0; i < par->k; i++) {
-    //     cudaMemcpy(par->exh_sol[i], sol[i], par->nWX * sizeof(ulong), cudaMemcpyDeviceToHost);
-    // }
+    checkCudaError(cudaMemcpy(h_sol, d_sol, solSize, cudaMemcpyDeviceToHost), "Failed to copy data from device to host");
+    bool h_found;
+    checkCudaError(cudaMemcpy(&h_found, d_found, sizeof(bool), cudaMemcpyDeviceToHost), "Failed to copy found flag from device to host");
 
-    // switch (par->search) {
-    //     case 0: //Búsqueda secuencial
-    //         linearSearch(); break;
-    //     case 1: //Búsqueda binaria
-    //         binarySearch(par->k, (par->greedy_sol.size() - par->unique_elements.size())); break;
-    //     case 2: //Búsqueda exponencial
-    //         exponentialSearch(); break;
-    //     case 3: //Búsqueda secuencial inversa (greedy--)
-    //         reverseSearch(); break;
-    // }
-    // par->exh_sol.insert(par->exh_sol.end(), par->unique_elements.begin(), par->unique_elements.end());
+    for(int i=0; i<k; i++) {
+        ulong* ss = new ulong[par->nWX];
+        for(int j=0; j<par->nWX; j++) {
+            if(CHECK) printSubset(h_sol);
+            ss[j] = h_sol[i*par->nWX+j];
+        }
+        par->exh_sol.push_back(ss);
+    }
 
-    // cudaFree(d_comb);
-    // cudaFree(sol);
+    cudaFree(d_comb);
+    cudaFree(d_sol);
+    cudaFree(d_X);
+    cudaFree(d_found);
+
+    return h_found;
 }
 
 __device__ int coefBin(int n, int k){
+
+    if((2*k) > n) k = n - k;
     int combCount = 1;
-    for (int i = 0; i < k; ++i) {
+    for (int i = 0; i < k; i++) {
         combCount *= (n - i);
         combCount /= (i + 1);
     }
     return combCount;
 }
 
-__global__ void generateCombinationsKernel(int n, int k, int* d_combinations, int combCount) {
+__global__ void generateCombinationsKernel(int m, int k, ulong* d_combinations, ulong* X, ulong* sol, int nWX, ulong combCount, bool* found) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     // tid fuera de rango
-    if (tid >= combCount) return;
+    if (tid >= combCount || *found) return;
 
     int combId = tid;
     int offset = 0;
+    ulong* uComb = new ulong[k*nWX]; //comb única generada por tid
 
     // Calcular combinación única por tid
     for (int i = 0; i < k; i++) {
-        for (int j = offset; j < n; j++) {
-            int countRest = coefBin(n-j-1,k-i-1); //num combinaciones restantes luego de agregar 1
+        for (int j = offset; j < m; j++) {
+            int countRest = coefBin((m-j-1), (k-i-1)); //num combinaciones restantes luego de agregar 1
             if (combId < countRest) { //valor de j se agrega a la combinación
-                d_combinations[tid * k + i] = j;
+                for(int k=0; k<nWX; k++) uComb[i*nWX+k] = d_combinations[j*nWX+k];
                 offset = j + 1;
                 break;
             } else { //j++, disminución de num combinaciones
@@ -449,126 +474,111 @@ __global__ void generateCombinationsKernel(int n, int k, int* d_combinations, in
             }
         }
     }
+
+    //Verificar si la comb cubre el universo
+    if(isCovered(uComb, k, X, nWX)) {
+        printf("tid = %d found a solution!\n", tid);
+
+        //Copiar comb a sol
+        if (atomicCAS((int*)found, 0, 1) == 0) {
+            // Copy comb to sol
+            for (int i = 0; i < k; i++) {
+                for (int j = 0; j < nWX; j++) sol[i * nWX + j] = uComb[i * nWX + j];
+            }
+        }
+
+        __threadfence(); //Detener para todos los threads
+    }
+    delete[] uComb;
 }
 
-// __global__ void generateCombinationsKernel(int n, int k, ulong** d_combinations, int nX, ulong nWX, ulong combCount, ulong**sol) {
-//     int tid = blockIdx.x * blockDim.x + threadIdx.x;
+__device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX) {
+    // Calcular unión de chosenSets
+    ulong* C = new ulong[nWX];
+    for (int i = 0; i < nWX; i++) C[i] = 0;
+    for(int i=0; i<k; i++) for(int j=0; j<nWX; j++) C[j] |= chosenSets[i*nWX+j];
 
-//     // tid fuera de rango
-//     if (tid >= combCount) return;
+    // Calcular número de conjuntos cubiertos
+    bool isCov = true;
+    for (int i = 0; i < nWX; i++) if ((C[i] & X[i]) != X[i]) {
+        isCov = false;
+        break;
+    }
+    delete[] C;
+    return isCov;
+}
 
-//     int combId = tid;
-//     int offset = 0;
-//     ulong** subsets = new ulong*[k];
+void linearSearch() {
+    bool found = false;
+    while(!found) {
+        if(PRINT) cout << "K = " << par->k << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = launchKernel(par->k);
+        auto end = chrono::high_resolution_clock::now();
 
-//     // Calcular combinación única por tid
-//     for (int i = 0; i < k; i++) {
-//         subsets[i] = new ulong[nWX];
+        auto time = std::chrono::duration_cast<chrono::microseconds>(end - start).count();
+        if(PRINT) cout << "Time: " << time / 1000000.0 << "[s]" << endl;
+        //No se encuentra una solución de tamaño k, aumentamos en 1
+        par->k++;
+    }
+}
 
-//         for (int j = offset; j < n; j++) {
-//             int countRest = coefBin(n-j-1,k-i-1); //num combinaciones restantes luego de agregar 1
-//             if (combId < countRest) { //valor de j se agrega a la combinación
-//                 subsets[i] = d_combinations[j];
-//                 offset = j + 1;
-//                 break;
-//             } else { //j++, disminución de num combinaciones
-//                 combId -= countRest;
-//             }
-//         }
-//     }
+void binarySearch(int l, int r) {
+    int m = l;
+    bool found;
+    while(l <= r) {
+        if(PRINT) cout << "K = " << m << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = launchKernel(m);
+        auto end = chrono::high_resolution_clock::now();
+        auto time = std::chrono::duration_cast<chrono::microseconds>(end - start).count();
+        if(PRINT) cout << "Time: " << time << "[s]" << endl;
+        if (found) r = m - 1;
+        else l = m + 1;
+        m = l + (r - l)/2;
+    }
+}
 
-//     if(isCovered(subsets, k, nX, nWX)) {
+void exponentialSearch() {
+    int exp = 1;
+    int greedySize = par->greedy_sol.size() - par->unique_elements.size();
+    bool found = false;
+
+    while(par->k <= greedySize && !found) {
+        cout << "K = " << par->k << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = launchKernel(par->k);
+        auto end = chrono::high_resolution_clock::now();
+        auto time = std::chrono::duration_cast<chrono::microseconds>(end - start).count();
+        if(PRINT) cout << "Time: " << time / 1000000.0 << "[s]" << endl;
         
-//         for (int i = 0; i < k; i++) {
-//             sol[i] = subsets[i];
-//         }
+        if(!found){
+            par->k += exp;
+            exp *= 2;
+        }
+    }
 
-//         // Detener el paralelismo para todos los threads
-//         __threadfence();
-//     }
+    //Realizar búsqueda binaria en un rango más pequeño
+    int l = par->k - exp/2 + 1;
+    int r = min(par->k-1, greedySize);
+    cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
+    binarySearch(l, r);
+}
 
-//     // Liberar la memoria de subsets
-//     for (int i = 0; i < k; ++i) {
-//         delete[] subsets[i];
-//     }
-//     delete[] subsets;
-// }
-
-// void linearSearch() {
-//     double start, end, calcTime;
-//     bool found = false;
-//     while(!found) {
-//         if(PRINT) cout << "K = " << par->k << endl;
-//         start = std::chrono::high_resolution_clock::now();
-//         found = generate_combinations(par->k);
-//         cudaDeviceSynchronize();
-//         end = std::chrono::high_resolution_clock::now();
-
-//         calcTime = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-//         if(PRINT) cout << "Time: " << calcTime / 1000000.0 << "[s]" << endl;
-//         //No se encuentra una solución de tamaño k, aumentamos en 1
-//         par->k++;
-//     }
-// }
-
-// void binarySearch(int l, int r) {
-//     double start, end;
-//     int m = l;
-//     bool found;
-//     while(l <= r) {
-//         if(PRINT) cout << "K = " << m << endl;
-//         start = omp_get_wtime();
-//         found = generate_combinations(m);
-//         end = omp_get_wtime();
-//         if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
-//         if (found) r = m - 1;
-//         else l = m + 1;
-//         m = l + (r - l)/2;
-//     }
-// }
-
-// void exponentialSearch() {
-//     double start, end;
-//     int exp = 1;
-//     int greedySize = par->greedy_sol.size() - par->unique_elements.size();
-//     bool found = false;
-
-//     while(par->k <= greedySize && !found) {
-//         cout << "K = " << par->k << endl;
-//         start = omp_get_wtime();
-//         found = generate_combinations(par->k);
-//         end = omp_get_wtime();
-//         if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
-        
-//         if(!found){
-//             par->k += exp;
-//             exp *= 2;
-//         }
-//     }
-
-//     //Realizar búsqueda binaria en un rango más pequeño
-//     int l = par->k - exp/2 + 1;
-//     int r = min(par->k-1, greedySize);
-//     cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
-//     binarySearch(l, r);
-// }
-
-// void reverseSearch() {
-//     double start, end;
-//     bool found = true;
-//     int k = par->greedy_sol.size() - par->unique_elements.size();
-//     while(k >= par->k && found) {
-//         if(PRINT) cout << "K = " << k << endl;
-//         start = omp_get_wtime();
-//         found = generate_combinations(k);
-//         end = omp_get_wtime();
-//         if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
-//         //No se encuentra una solución de tamaño k, disminuimos en 1
-//         k--;
-//     }
-// }
-
-//32
+void reverseSearch() {
+    bool found = true;
+    int k = par->greedy_sol.size() - par->unique_elements.size();
+    while(k >= par->k && found) {
+        if(PRINT) cout << "K = " << k << endl;
+        auto start = chrono::high_resolution_clock::now();
+        found = launchKernel(k);
+        auto end = chrono::high_resolution_clock::now();
+        auto time = chrono::duration_cast<chrono::microseconds>(end - start).count();
+        if(PRINT) cout << "Time: " << time / 1000000.0 << "[s]" << endl;
+        //No se encuentra una solución de tamaño k, disminuimos en 1
+        k--;
+    }
+}
 
 void preprocess() {
     cout << "------------------------" << endl;
@@ -598,30 +608,6 @@ void preprocess() {
     par->n = countSet(par->X);
     cout << "|X| = " << par->n << endl;
     cout << "|F| = " << par->m << endl;
-}
-
-__device__ bool isCovered(ulong** chosenSets, int k, int n, ulong nWX) {
-    // Calcular unión de chosenSets
-    ulong* C = new ulong[nWX];
-    for (int i = 0; i < nWX; ++i) {
-        C[i] = 0;
-    }
-    for(int i=0; i<k; i++) {
-        ulong* subset = chosenSets[i];
-        for(int j=0; j<nWX; j++) C[j] |= subset[j];
-    }
-
-    // Calcular número de conjuntos cubiertos
-    int cont = 0;
-    for(int i=0; i<nWX; i++) {
-        cont += __popcll(C[i]);
-    }
-
-    delete[] C;
-
-    // Verificar si se cubre el universo
-    if(cont == n) return true;
-    return false;
 }
 
 int intersectionLength(const ulong* A, const ulong* B) {
