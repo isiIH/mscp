@@ -61,7 +61,7 @@ void greedy();
 
 __device__ int coefBin(int n, int k);
 __global__ void generateCombinationsKernel(int m, int k, ulong* d_combinations, ulong* X, ulong* sol, int nWX, ulong combCount, bool* found);
-__device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX);
+__device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX, ulong* sharedMem);
 bool launchKernel(int k);
 
 int countSet(const ulong* S);
@@ -382,6 +382,7 @@ bool launchKernel(int k) {
 
     dim3 threadsPerBlock(BS);
     dim3 numBlocks((combCount + BS -1) / BS);
+    size_t sharedMemSize = BS * k * par->nWX * sizeof(ulong) + BS * par->nWX * sizeof(ulong);
 
     cout << "tpb: " << BS << endl;
     cout << "num_blocks: " << (combCount + BS -1) / BS << endl;
@@ -416,20 +417,22 @@ bool launchKernel(int k) {
     checkCudaError(cudaMalloc(&d_found, sizeof(bool)), "Failed to allocate device memory for d_found");
     checkCudaError(cudaMemset(d_found, 0, sizeof(bool)), "Failed to set device memory for d_found");
 
-    generateCombinationsKernel<<<numBlocks, threadsPerBlock>>>(par->m, k, d_comb, d_X, d_sol, par->nWX, combCount, d_found);
+    generateCombinationsKernel<<<numBlocks, threadsPerBlock, sharedMemSize>>>(par->m, k, d_comb, d_X, d_sol, par->nWX, combCount, d_found);
     checkCudaError(cudaDeviceSynchronize(), "Kernel execution failed");
 
     checkCudaError(cudaMemcpy(h_sol, d_sol, solSize, cudaMemcpyDeviceToHost), "Failed to copy data from device to host");
     bool h_found;
     checkCudaError(cudaMemcpy(&h_found, d_found, sizeof(bool), cudaMemcpyDeviceToHost), "Failed to copy found flag from device to host");
 
-    for(int i=0; i<k; i++) {
-        ulong* ss = new ulong[par->nWX];
-        for(int j=0; j<par->nWX; j++) {
-            if(CHECK) printSubset(h_sol);
-            ss[j] = h_sol[i*par->nWX+j];
+    if(h_found) {
+        for(int i=0; i<k; i++) {
+            ulong* ss = new ulong[par->nWX];
+            for(int j=0; j<par->nWX; j++) {
+                if(CHECK) printSubset(h_sol);
+                ss[j] = h_sol[i*par->nWX+j];
+            }
+            par->exh_sol.push_back(ss);
         }
-        par->exh_sol.push_back(ss);
     }
 
     cudaFree(d_comb);
@@ -452,6 +455,7 @@ __device__ int coefBin(int n, int k){
 }
 
 __global__ void generateCombinationsKernel(int m, int k, ulong* d_combinations, ulong* X, ulong* sol, int nWX, ulong combCount, bool* found) {
+    extern __shared__ ulong shared_mem[];
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
     // tid fuera de rango
@@ -459,14 +463,14 @@ __global__ void generateCombinationsKernel(int m, int k, ulong* d_combinations, 
 
     int combId = tid;
     int offset = 0;
-    ulong* uComb = new ulong[k*nWX]; //comb única generada por tid
+    ulong* uComb = shared_mem + threadIdx.x * k * nWX; //comb única generada por tid
 
     // Calcular combinación única por tid
     for (int i = 0; i < k; i++) {
         for (int j = offset; j < m; j++) {
             int countRest = coefBin((m-j-1), (k-i-1)); //num combinaciones restantes luego de agregar 1
             if (combId < countRest) { //valor de j se agrega a la combinación
-                for(int k=0; k<nWX; k++) uComb[i*nWX+k] = d_combinations[j*nWX+k];
+                for(int l=0; l<nWX; l++) uComb[i*nWX+l] = d_combinations[j*nWX+l];
                 offset = j + 1;
                 break;
             } else { //j++, disminución de num combinaciones
@@ -476,25 +480,24 @@ __global__ void generateCombinationsKernel(int m, int k, ulong* d_combinations, 
     }
 
     //Verificar si la comb cubre el universo
-    if(isCovered(uComb, k, X, nWX)) {
+    if(!*found && isCovered(uComb, k, X, nWX, shared_mem + (blockDim.x * k * nWX) + (threadIdx.x * nWX))) {
         printf("tid = %d found a solution!\n", tid);
 
         //Copiar comb a sol
         if (atomicCAS((int*)found, 0, 1) == 0) {
+            printf("tid = %d copying the uComb!\n", tid);
             // Copy comb to sol
             for (int i = 0; i < k; i++) {
                 for (int j = 0; j < nWX; j++) sol[i * nWX + j] = uComb[i * nWX + j];
             }
         }
 
-        __threadfence(); //Detener para todos los threads
     }
-    delete[] uComb;
 }
 
-__device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX) {
+__device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX, ulong* sharedMem) {
     // Calcular unión de chosenSets
-    ulong* C = new ulong[nWX];
+    ulong* C = sharedMem;
     for (int i = 0; i < nWX; i++) C[i] = 0;
     for(int i=0; i<k; i++) for(int j=0; j<nWX; j++) C[j] |= chosenSets[i*nWX+j];
 
@@ -504,7 +507,6 @@ __device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX) {
         isCov = false;
         break;
     }
-    delete[] C;
     return isCov;
 }
 
