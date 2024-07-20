@@ -5,3 +5,4 @@ opt
 opt_cu
 test_partition/
 test_scp/
+results/

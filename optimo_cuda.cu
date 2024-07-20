@@ -14,7 +14,7 @@
 using namespace std;
 using namespace cds;
 
-#define PRINT 1
+#define PRINT 0
 #define CHECK 0
 
 #define BS 1024
@@ -91,15 +91,16 @@ int main(int argc, char** argv) {
     auto dur_analyze = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
 
-    cout  << "X: " << par->n
-        << " | F: " << par->m << endl;
+    if(PRINT) cout  << "X: " << par->n << " | F: " << par->m << endl;
 
     par->sizeF = par->m*sizeof(ulong)*par->n;
     par->sizeNF = par->m*sizeof(ulong)*par->nWX;
 
-	cout << "nWX = " << par->nWX << endl;
-	cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB" << endl;
-	cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
+	if(PRINT) {
+        cout << "nWX = " << par->nWX << endl;
+        cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB" << endl;
+        cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
+    }
 
     if(CHECK) {
         for(vector<int> set : par->F) {
@@ -136,11 +137,17 @@ int main(int argc, char** argv) {
         cout << "SOL: " << endl;
         printSubsets(par->exh_sol);
     }
-    cout << "------------------------" << endl;
-    cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
-    cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
-	cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
-    cout << "Time [s]: " << dur_opt/1000000.0 << endl;
+    if(PRINT) {
+        cout << "------------------------" << endl;
+        cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
+        cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
+        cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
+        cout << "Time [s]: " << dur_opt/1000000.0 << endl;
+    }
+
+    cout << argv[1] << " " << par->n << " " << par->m << " " << par->search << " " 
+        << dur_opt/1000000.0 << " " << par->exh_sol.size() << " " << par->k << " " << par->greedy_sol.size() << endl;
+
 
     return 0;
 }
@@ -151,7 +158,7 @@ void readFile(string filename) {
 }
 
 void readFileScp(string filename) {
-    cout << "Reading file " << filename << "..." << endl;
+    if(PRINT) cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test_scp/" + filename;
     ifstream file(nametxt.c_str());
     if(file.fail()){
@@ -335,15 +342,17 @@ void checkCudaError(cudaError_t result, const char* msg) {
 }
 
 void exhaustive_sol() {
-    cout << "-----------------------------------------------------------" << endl;
-    cout << "Executing new exhaustive algorithm";
-    switch (par->search) {
-        case 0: cout << " with sequential search..." << endl; break;
-        case 1: cout << " with binary search..." << endl; break;
-        case 2: cout << " with exponential search..." << endl; break;
-        case 3: cout << " with reverse search..." << endl; break;
+    if(PRINT) {
+        cout << "-----------------------------------------------------------" << endl;
+        cout << "Executing new exhaustive algorithm";
+        switch (par->search) {
+            case 0: cout << " with sequential search..." << endl; break;
+            case 1: cout << " with binary search..." << endl; break;
+            case 2: cout << " with exponential search..." << endl; break;
+            case 3: cout << " with reverse search..." << endl; break;
+        }
+        cout << "-----------------------------------------------------------" << endl;
     }
-    cout << "-----------------------------------------------------------" << endl;
 
     // Calcular mínimo número de subconjuntos
     vector<ulong*> Fsort = par->bF;
@@ -356,7 +365,7 @@ void exhaustive_sol() {
 
     //Iterar desde K hasta encontrar el óptimo
     int max_k = par->greedy_sol.size() - par->unique_elements.size();
-    cout << "Search Range = [" << par->k << " - " << max_k << "]" << endl;
+    if(PRINT) cout << "Search Range = [" << par->k << " - " << max_k << "]" << endl;
 
     switch (par->search) {
         case 0: //Búsqueda secuencial
@@ -378,22 +387,26 @@ bool launchKernel(int k) {
         combCount *= (par->m-i);
         combCount /= (i+1);
     }
-    cout << "Comb. count: " << combCount << endl;
+    if(PRINT) cout << "Comb. count: " << combCount << endl;
 
     dim3 threadsPerBlock(BS);
     dim3 numBlocks((combCount + BS -1) / BS);
     size_t sharedMemSize = BS * k * par->nWX * sizeof(ulong) + BS * par->nWX * sizeof(ulong);
 
-    cout << "tpb: " << BS << endl;
-    cout << "num_blocks: " << (combCount + BS -1) / BS << endl;
+    if(PRINT) {
+        cout << "tpb: " << BS << endl;
+        cout << "num_blocks: " << (combCount + BS -1) / BS << endl;
+    }
 
     int uSize = par->nWX * sizeof(ulong);
     int fSize = par->m * uSize;
     int solSize = k * uSize;
 
-    cout << "uSize: " << uSize << endl;
-    cout << "fSize: " << fSize << endl;
-    cout << "solSize: " << solSize << endl;
+    if(PRINT) {
+        cout << "uSize: " << uSize << endl;
+        cout << "fSize: " << fSize << endl;
+        cout << "solSize: " << solSize << endl;
+    }
 
     // Family of subsets
     ulong* d_comb;
@@ -481,11 +494,11 @@ __global__ void generateCombinationsKernel(int m, int k, ulong* d_combinations, 
 
     //Verificar si la comb cubre el universo
     if(!*found && isCovered(uComb, k, X, nWX, shared_mem + (blockDim.x * k * nWX) + (threadIdx.x * nWX))) {
-        printf("tid = %d found a solution!\n", tid);
+        if(CHECK) printf("tid = %d found a solution!\n", tid);
 
         //Copiar comb a sol
         if (atomicCAS((int*)found, 0, 1) == 0) {
-            printf("tid = %d copying the uComb!\n", tid);
+            if(CHECK) printf("tid = %d copying the uComb!\n", tid);
             // Copy comb to sol
             for (int i = 0; i < k; i++) {
                 for (int j = 0; j < nWX; j++) sol[i * nWX + j] = uComb[i * nWX + j];
@@ -512,16 +525,17 @@ __device__ bool isCovered(ulong* chosenSets, int k, ulong* X, ulong nWX, ulong* 
 
 void linearSearch() {
     bool found = false;
+    int k = par->k;
     while(!found) {
-        if(PRINT) cout << "K = " << par->k << endl;
+        if(PRINT) cout << "K = " << k << endl;
         auto start = chrono::high_resolution_clock::now();
-        found = launchKernel(par->k);
+        found = launchKernel(k);
         auto end = chrono::high_resolution_clock::now();
 
         auto time = std::chrono::duration_cast<chrono::microseconds>(end - start).count();
         if(PRINT) cout << "Time: " << time / 1000000.0 << "[s]" << endl;
         //No se encuentra una solución de tamaño k, aumentamos en 1
-        par->k++;
+        k++;
     }
 }
 
@@ -545,25 +559,26 @@ void exponentialSearch() {
     int exp = 1;
     int greedySize = par->greedy_sol.size() - par->unique_elements.size();
     bool found = false;
+    int k = par->k;
 
-    while(par->k <= greedySize && !found) {
-        cout << "K = " << par->k << endl;
+    while(k <= greedySize && !found) {
+        if(PRINT) cout << "K = " << k << endl;
         auto start = chrono::high_resolution_clock::now();
-        found = launchKernel(par->k);
+        found = launchKernel(k);
         auto end = chrono::high_resolution_clock::now();
         auto time = std::chrono::duration_cast<chrono::microseconds>(end - start).count();
         if(PRINT) cout << "Time: " << time / 1000000.0 << "[s]" << endl;
         
         if(!found){
-            par->k += exp;
+            k += exp;
             exp *= 2;
         }
     }
 
     //Realizar búsqueda binaria en un rango más pequeño
-    int l = par->k - exp/2 + 1;
-    int r = min(par->k-1, greedySize);
-    cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
+    int l = k - exp/2 + 1;
+    int r = min(k-1, greedySize);
+    if(PRINT) cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
     binarySearch(l, r);
 }
 
@@ -583,9 +598,11 @@ void reverseSearch() {
 }
 
 void preprocess() {
-    cout << "------------------------" << endl;
-    cout << "Executing PreSetCover..." << endl;
-    cout << "------------------------" << endl;
+    if(PRINT) {
+        cout << "------------------------" << endl;
+        cout << "Executing PreSetCover..." << endl;
+        cout << "------------------------" << endl;
+    }
     // Add uniques elements
     int setIndex;
     ulong* S;
@@ -606,10 +623,12 @@ void preprocess() {
         par->m--;
     }
 
-    cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
     par->n = countSet(par->X);
-    cout << "|X| = " << par->n << endl;
-    cout << "|F| = " << par->m << endl;
+    if(PRINT) {
+        cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
+        cout << "|X| = " << par->n << endl;
+        cout << "|F| = " << par->m << endl;
+    }
 }
 
 int intersectionLength(const ulong* A, const ulong* B) {

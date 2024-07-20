@@ -14,7 +14,7 @@
 using namespace std;
 using namespace cds;
 
-#define PRINT 1
+#define PRINT 0
 #define CHECK 0
 
 typedef struct{
@@ -90,15 +90,16 @@ int main(int argc, char** argv) {
     auto dur_analyze = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
 
-    cout  << "X: " << par->n
-        << " | F: " << par->m << endl;
+    if(PRINT) cout  << "X: " << par->n << " | F: " << par->m << endl;
 
     par->sizeF = par->m*sizeof(ulong)*par->n;
     par->sizeNF = par->m*sizeof(ulong)*par->nWX;
 
-	cout << "nWX = " << par->nWX << endl;
-	cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB" << endl;
-	cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
+	if(PRINT) {
+        cout << "nWX = " << par->nWX << endl;
+        cout << " size for F[] = " << par->sizeF/(1024.0*1024.0) << " MiB" << endl;
+        cout << " size for nF[] = " << par->sizeNF/(1024.0*1024.0) << " MiB" << endl;
+    }
 
     if(CHECK) {
         for(vector<int> set : par->F) {
@@ -135,11 +136,16 @@ int main(int argc, char** argv) {
         cout << "SOL: " << endl;
         printSubsets(par->exh_sol);
     }
-    cout << "------------------------" << endl;
-    cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
-    cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
-	cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
-    cout << "Time [s]: " << dur_opt/1000000.0 << endl;
+    if(PRINT) {
+        cout << "------------------------" << endl;
+        cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
+        cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
+        cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
+        cout << "Time [s]: " << dur_opt/1000000.0 << endl;
+    }
+
+    cout << argv[1] << " " << par->n << " " << par->m << " " << par->nt << " " << par->search << " " 
+        << dur_opt/1000000.0 << " " << par->exh_sol.size() << " " << par->k << " " << par->greedy_sol.size() << endl;
 
     return 0;
 }
@@ -150,7 +156,7 @@ void readFile(string filename) {
 }
 
 void readFileScp(string filename) {
-    cout << "Reading file " << filename << "..." << endl;
+    if(PRINT) cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test_scp/" + filename;
     ifstream file(nametxt.c_str());
     if(file.fail()){
@@ -327,15 +333,17 @@ void greedy() {
 }
 
 void exhaustive_sol() {
-    cout << "-----------------------------------------------------------" << endl;
-    cout << "Executing new exhaustive algorithm";
-    switch (par->search) {
-        case 0: cout << " with sequential search..." << endl; break;
-        case 1: cout << " with binary search..." << endl; break;
-        case 2: cout << " with exponential search..." << endl; break;
-        case 3: cout << " with reverse search..." << endl; break;
+    if(PRINT) {
+        cout << "-----------------------------------------------------------" << endl;
+        cout << "Executing new exhaustive algorithm";
+        switch (par->search) {
+            case 0: cout << " with sequential search..." << endl; break;
+            case 1: cout << " with binary search..." << endl; break;
+            case 2: cout << " with exponential search..." << endl; break;
+            case 3: cout << " with reverse search..." << endl; break;
+        }
+        cout << "-----------------------------------------------------------" << endl;
     }
-    cout << "-----------------------------------------------------------" << endl;
 
     // Calcular mínimo número de subconjuntos
     vector<ulong*> Fsort = par->bF;
@@ -347,7 +355,7 @@ void exhaustive_sol() {
     }
 
     //Iterar desde K hasta encontrar el óptimo
-    cout << "Search Range = [" << par->k << " - " << par->greedy_sol.size() - par->unique_elements.size() << "]" << endl;
+    if(PRINT) cout << "Search Range = [" << par->k << " - " << par->greedy_sol.size() - par->unique_elements.size() << "]" << endl;
 
     switch (par->search) {
         case 0: //Búsqueda secuencial
@@ -376,7 +384,7 @@ bool recursive_combinations(bool &found, int index, int k, vector<ulong*>& chose
         if(isCovered(chosenSets)) {
             #pragma omp critical
             {
-                printf("Solution found!\n");
+                if(CHECK) printf("Solution found!\n");
                 par->exh_sol = chosenSets;
             }
             return true;
@@ -405,7 +413,7 @@ bool generate_combinations(int k) {
     {
         #pragma omp for schedule(dynamic, 1)
         for (int i = 0; i < par->m-k+1; i++) {
-            printf("i = %d\n", i);
+            if(CHECK) printf("i = %d\n", i);
             vector<ulong*> data;
             data.push_back(par->bF[i]);
             if(recursive_combinations(found, i+1, k-1, data)) {
@@ -426,14 +434,15 @@ bool generate_combinations(int k) {
 void linearSearch() {
     double start, end;
     bool found = false;
+    int k = par->k;
     while(!found) {
-        if(PRINT) cout << "K = " << par->k << endl;
+        if(PRINT) cout << "K = " << k << endl;
         start = omp_get_wtime();
-        found = generate_combinations(par->k);
+        found = generate_combinations(k);
         end = omp_get_wtime();
         if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
         //No se encuentra una solución de tamaño k, aumentamos en 1
-        par->k++;
+        k++;
     }
 }
 
@@ -456,26 +465,27 @@ void binarySearch(int l, int r) {
 void exponentialSearch() {
     double start, end;
     int exp = 1;
+    int k = par->k;
     int greedySize = par->greedy_sol.size() - par->unique_elements.size();
     bool found = false;
 
-    while(par->k <= greedySize && !found) {
-        cout << "K = " << par->k << endl;
+    while(k <= greedySize && !found) {
+        if(PRINT) cout << "K = " << k << endl;
         start = omp_get_wtime();
-        found = generate_combinations(par->k);
+        found = generate_combinations(k);
         end = omp_get_wtime();
         if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
         
         if(!found){
-            par->k += exp;
+            k += exp;
             exp *= 2;
         }
     }
 
     //Realizar búsqueda binaria en un rango más pequeño
-    int l = par->k - exp/2 + 1;
-    int r = min(par->k-1, greedySize);
-    cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
+    int l = k - exp/2 + 1;
+    int r = min(k-1, greedySize);
+    if(PRINT) cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
     binarySearch(l, r);
 }
 
@@ -495,9 +505,11 @@ void reverseSearch() {
 }
 
 void preprocess() {
-    cout << "------------------------" << endl;
-    cout << "Executing PreSetCover..." << endl;
-    cout << "------------------------" << endl;
+    if(PRINT) {
+        cout << "------------------------" << endl;
+        cout << "Executing PreSetCover..." << endl;
+        cout << "------------------------" << endl;
+    }
     // Add uniques elements
     int setIndex;
     ulong* S;
@@ -518,10 +530,12 @@ void preprocess() {
         par->m--;
     }
 
-    cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
     par->n = countSet(par->X);
-    cout << "|X| = " << par->n << endl;
-    cout << "|F| = " << par->m << endl;
+    if(PRINT) {
+        cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
+        cout << "|X| = " << par->n << endl;
+        cout << "|F| = " << par->m << endl;
+    }
 }
 
 bool isCovered(vector<ulong*> chosenSets) {
