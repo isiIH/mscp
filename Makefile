@@ -1,19 +1,17 @@
 CPP=g++ -std=c++11
 CPPFLAGS=-O3 -DVERBOSE -fopenmp
 INCLUDES=-I./include/
-OPTBW=./include/BasicCDS.cpp optimo.cpp
-OPTCU=./include/BasicCDS.cpp optimo_cuda.cu
-BINS=opt opt_cu
+APRBW=./include/BasicCDS.cpp aproxSC.cpp
+# OPTCU=./include/BasicCDS.cpp optimo_cuda.cu
+BINS=apr
 
-CUDAFLAGS  := -arch=sm_50
+all: clean aprox
 
-all: clean optimo optimo_cuda
+aprox: aproxSC.cpp
+	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o apr $(APRBW)
 
-optimo: optimo.cpp
-	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o opt $(OPTBW)
-
-optimo_cuda: optimo_cuda.cu
-	nvcc $(CUDAFLAGS) $(INCLUDES) -o opt_cu $(OPTCU)
+# optimo_cuda: optimo_cuda.cu
+# 	nvcc $(CUDAFLAGS) $(INCLUDES) -o opt_cu $(OPTCU)
 
 %.o: %.cu
 	nvcc $(CUDAFLAGS) -c $< -o $@

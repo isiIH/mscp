@@ -9,13 +9,15 @@
 #include <set>
 #include <map>
 #include <unordered_map>
-#include <omp.h>
+#include <numeric>
 
 using namespace std;
 using namespace cds;
 
-#define PRINT 0
-#define CHECK 0
+#define PRINT 1
+#define CHECK 1
+
+#define GRADE 2
 
 typedef struct{
 	int value;
@@ -23,19 +25,23 @@ typedef struct{
 	vector<int> subSets;
 } item;
 
+typedef struct {
+    int posSet;
+    int size;
+    int elems;
+} cvg;
+
 // Structure with all globals parameters program
 typedef struct {
-    int search;
-    int k = 0;
 	ulong* X;
 	vector<vector<int>> F;
-    set<int> chi;
-    map<int,int> elem_pos;
     vector<ulong*> bF;
+
     vector<item> mp;
+    vector<cvg> subset_cvg;
     vector<ulong*> unique_elements;
     vector<ulong*> greedy_sol;
-    vector<ulong*> exh_sol;
+    vector<ulong*> aprox_sol;
     ulong sizeF, sizeNF;
 	ulong n, m, nWX;
     int nt;
@@ -49,15 +55,10 @@ void readFilePartition(string filename);
 void analizeF();
 void preprocess();
 
-bool generate_combinations(int k);
-bool recursive_combinations(bool &found, int index, int k, vector<ulong*>& chosenSets);
-void linearSearch();
-void binarySearch(int l, int r);
-void exponentialSearch();
-void reverseSearch();
-
 void exhaustive_sol();
 void greedy();
+
+double jaccard(const ulong* A, const ulong* B);
 
 bool isCovered(vector<ulong*> chosenSets);
 ulong* unionF(const vector<ulong*> &F);
@@ -69,26 +70,18 @@ void printSubsets(const vector<ulong*> &C);
 
 int main(int argc, char** argv) {
 
-    if(argc !=4){
-		cout << "./opt <filename> <search> <nt>" << endl;
+    if(argc !=2){
+		cout << "./opt <filename>" << endl;
 		exit(EXIT_FAILURE);
 	}
 
     par = new ParProg();
-    par->search = atoi(argv[2]);
-    if(par->search < 0 || par->search > 3){
-        cout << "Invalid Search Type!\n0: Secuential Search\n1: Binary Search\n2: Exponential Search\n3: Reverse Search" << endl;
-        exit(EXIT_FAILURE);
-    }
 
     readFile(argv[1]);
-    par->nt = atoi(argv[3]);
-    omp_set_num_threads(par->nt);
     auto start_time = chrono::high_resolution_clock::now();
     analizeF();
     auto end_time = chrono::high_resolution_clock::now();
     auto dur_analyze = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
-
 
     if(PRINT) cout  << "X: " << par->n << " | F: " << par->m << endl;
 
@@ -104,7 +97,7 @@ int main(int argc, char** argv) {
     if(CHECK) {
         for(vector<int> set : par->F) {
             for(int val : set) {
-                cout << val << " - ";
+                cout << val << " ";
             }
             cout << endl;
         }
@@ -127,25 +120,26 @@ int main(int argc, char** argv) {
 
     //NEW EXHAUSTIVE ALGORITHM
     start_time = chrono::high_resolution_clock::now();
-    exhaustive_sol();
+    
     end_time = chrono::high_resolution_clock::now();
-    auto dur_opt = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
-    dur_opt += dur_preprocess + dur_analyze;
+    auto dur_apr = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    dur_apr += dur_preprocess + dur_analyze;
 
     if(CHECK) {
         cout << "SOL: " << endl;
-        printSubsets(par->exh_sol);
+        printSubsets(par->aprox_sol);
     }
     if(PRINT) {
         cout << "------------------------" << endl;
         cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
         cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
-        cout << "Optimal Cardinality: " << par->exh_sol.size() << endl;
-        cout << "Time [s]: " << dur_opt/1000000.0 << endl;
+        cout << "AproxSC Cardinality: " << par->aprox_sol.size() << endl;
+        cout << "Time [s]: " << dur_apr/1000000.0 << endl;
+
+        // printSubsets(par->greedy_sol);
     }
 
-    cout << argv[1] << " " << par->n << " " << par->m << " " << par->nt << " " << par->search << " " 
-        << dur_opt/1000000.0 << " " << par->exh_sol.size() << " " << par->k << " " << par->greedy_sol.size() << endl;
+    cout << argv[1] << " " << par->n << " " << par->m << " " << dur_apr/1000000.0 << " " << par->aprox_sol.size() << " " << par->greedy_sol.size() << endl;
 
     return 0;
 }
@@ -234,44 +228,30 @@ void readFilePartition(string filename) {
 }
 
 void analizeF() {
-    unordered_map<int, vector<int>> inSet;
-    for( int i=0; i<par->F.size(); i++ ) {
-        for( int e : par->F[i] ) {
-            par->chi.insert(e);
-            inSet[e].push_back(i);
-        }
-    }
-
-    par->n = par->chi.size();
-
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
+    
     par->X = new ulong[par->nWX];
     fill(par->X, par->X + par->nWX, 0);
 
-    int pos = 0;
     par->mp = vector<item>(par->n);
-    for(pair<int, vector<int>> values : inSet){
-        setBit64(par->X, pos);
-        par->elem_pos[values.first] = pos;
-        par->mp[pos].value = values.first;
-        par->mp[pos].subSets = values.second;
-        par->mp[pos].rep = values.second.size();
-        pos++;
-    }
-
     ulong *bset;
-    for( int i=0; i<par->F.size(); i++ ) {
+    for(int i=0; i<par->F.size(); i++){
         bset = new ulong[par->nWX];
         fill(bset, bset + par->nWX, 0);
 
-        for( int e : par->F[i] ) {
-            setBit64(bset, par->elem_pos[e]);
-            inSet[e].push_back(i);
+        for(int e : par->F[i]) {
+            setBit64(par->X, (e-1));
+            par->mp[(e-1)].value = e;
+            par->mp[(e-1)].subSets.push_back(i);
+
+            setBit64(bset, (e-1));
         }
 
         par->bF.push_back(bset);
     }
+
+    for(int i=0; i<par->mp.size(); i++) par->mp[i].rep = par->mp[i].subSets.size();
 
     if(CHECK) {
         for(item mp_item : par->mp) {
@@ -286,9 +266,6 @@ void analizeF() {
     sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 
     if(CHECK) {
-        cout << "Universe elements = " << endl;
-        for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
-        cout << endl;
         cout << "X = " << countSet(par->X) << endl;
         cout << "n = " << par->n << endl;
         cout << "F = " << par->bF.size() << endl;
@@ -332,176 +309,17 @@ void greedy() {
     par->greedy_sol = C;
 }
 
-void exhaustive_sol() {
-    if(PRINT) {
-        cout << "-----------------------------------------------------------" << endl;
-        cout << "Executing new exhaustive algorithm";
-        switch (par->search) {
-            case 0: cout << " with sequential search..." << endl; break;
-            case 1: cout << " with binary search..." << endl; break;
-            case 2: cout << " with exponential search..." << endl; break;
-            case 3: cout << " with reverse search..." << endl; break;
-        }
-        cout << "-----------------------------------------------------------" << endl;
-    }
-
-    // Calcular mínimo número de subconjuntos
-    vector<ulong*> Fsort = par->bF;
-    sort(Fsort.begin(), Fsort.end(), [&](ulong* a, ulong* b){return countSet(a) > countSet(b);});
-    int minSS = 0;
-    while(minSS < par->n) {
-        minSS += countSet(Fsort[par->k]);
-        par->k++;
-    }
-
-    //Iterar desde K hasta encontrar el óptimo
-    if(PRINT) cout << "Search Range = [" << par->k << " - " << par->greedy_sol.size() - par->unique_elements.size() << "]" << endl;
-
-    switch (par->search) {
-        case 0: //Búsqueda secuencial
-            linearSearch(); break;
-        case 1: //Búsqueda binaria
-            binarySearch(par->k, (par->greedy_sol.size() - par->unique_elements.size())); break;
-        case 2: //Búsqueda exponencial
-            exponentialSearch(); break;
-        case 3: //Búsqueda secuencial inversa (greedy--)
-            reverseSearch(); break;
-    }
-    par->exh_sol.insert(par->exh_sol.end(), par->unique_elements.begin(), par->unique_elements.end());
-}
-
-bool recursive_combinations(bool &found, int index, int k, vector<ulong*>& chosenSets) {
-    if(found) return false;
-    if(k == 0) {
-        // for(ulong* set : chosenSets) {
-        //     printf("{ ");
-        //     for( pair<int, int> values : par->elem_pos ) if(getBit64(set, values.second)) printf("%d ",values.first);
-        //     printf("}\n");
-        // }
-        // printf("\n");
+double jaccard(const ulong* A, const ulong* B) {
+    double cont = 0.0;
+    for(int i = 0; i < par->nWX; i++) {
+        int inter_set = __builtin_popcountl(A[i] & B[i]);
+        int union_set = __builtin_popcountl(A[i] | B[i]);
         
-        //Verificar si se cubre el universo
-        if(isCovered(chosenSets)) {
-            #pragma omp critical
-            {
-                if(CHECK) printf("Solution found!\n");
-                par->exh_sol = chosenSets;
-            }
-            return true;
-        }
-        return false;
-    }
-
-    for (int i = index; i<par->m-k+1; i++) {
-        chosenSets.push_back(par->bF[i]);
-        if(recursive_combinations(found, i+1, k-1, chosenSets)) return true;
-        chosenSets.pop_back();
-    }
-
-    return false;
-}
-
-bool generate_combinations(int k) {
-    bool found = false;
-    // Cálculo del chunksize: número de iteraciones dividido por la cantidad de núcleos
-    // Se prefirió dejar chunk_size como 1 ya que la carga de trabajo es desequilibrada, así se puede aprovechar el dinamismo
-    // int chunk_size = (par->m-k+1)/par->nt;
-    // if((par->m-k+1)%par->nt != 0) chunk_size++;
-    // printf("Chunk-size = %d\n", chunk_size);
-
-    #pragma omp parallel default(none) shared(par, k, found)
-    {
-        #pragma omp for schedule(dynamic, 1)
-        for (int i = 0; i < par->m-k+1; i++) {
-            if(CHECK) printf("i = %d\n", i);
-            vector<ulong*> data;
-            data.push_back(par->bF[i]);
-            if(recursive_combinations(found, i+1, k-1, data)) {
-                #pragma omp critical 
-                {
-                    found = true;
-                }
-                #pragma omp cancel for
-            }
-            #pragma omp cancellation point for
-            data.pop_back();
+        if (union_set > 0) {
+            cont += (double)(inter_set) / union_set;
         }
     }
-
-    return found;
-}
-
-void linearSearch() {
-    double start, end;
-    bool found = false;
-    int k = par->k;
-    while(!found) {
-        if(PRINT) cout << "K = " << k << endl;
-        start = omp_get_wtime();
-        found = generate_combinations(k);
-        end = omp_get_wtime();
-        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
-        //No se encuentra una solución de tamaño k, aumentamos en 1
-        k++;
-    }
-}
-
-void binarySearch(int l, int r) {
-    double start, end;
-    int m = l;
-    bool found;
-    while(l <= r) {
-        if(PRINT) cout << "K = " << m << endl;
-        start = omp_get_wtime();
-        found = generate_combinations(m);
-        end = omp_get_wtime();
-        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
-        if (found) r = m - 1;
-        else l = m + 1;
-        m = l + (r - l)/2;
-    }
-}
-
-void exponentialSearch() {
-    double start, end;
-    int exp = 1;
-    int k = par->k;
-    int greedySize = par->greedy_sol.size() - par->unique_elements.size();
-    bool found = false;
-
-    while(k <= greedySize && !found) {
-        if(PRINT) cout << "K = " << k << endl;
-        start = omp_get_wtime();
-        found = generate_combinations(k);
-        end = omp_get_wtime();
-        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
-        
-        if(!found){
-            k += exp;
-            exp *= 2;
-        }
-    }
-
-    //Realizar búsqueda binaria en un rango más pequeño
-    int l = k - exp/2 + 1;
-    int r = min(k-1, greedySize);
-    if(PRINT) cout << "Search range for binary search: [" << l << " - " << r << "]" << endl;
-    binarySearch(l, r);
-}
-
-void reverseSearch() {
-    double start, end;
-    bool found = true;
-    int k = par->greedy_sol.size() - par->unique_elements.size();
-    while(k >= par->k && found) {
-        if(PRINT) cout << "K = " << k << endl;
-        start = omp_get_wtime();
-        found = generate_combinations(k);
-        end = omp_get_wtime();
-        if(PRINT) cout << "Time: " << (end - start) << "[s]" << endl;
-        //No se encuentra una solución de tamaño k, disminuimos en 1
-        k--;
-    }
+    return cont;
 }
 
 void preprocess() {
@@ -520,21 +338,45 @@ void preprocess() {
         // Eliminar subsets del map que no se usen
         for(int e : par->F[setIndex]) {
             par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
-            cleanBit64(par->X,par->elem_pos[e]);
+            cleanBit64(par->X,(e-1));
         }
+
         par->unique_elements.push_back(S);
+        // par->bF.erase(find(par->bF.begin(), par->bF.end(), S));
+        // par->m--;
     }
 
-    for(ulong* S : par->unique_elements) {
-        par->bF.erase(find(par->bF.begin(), par->bF.end(), S));
-        par->m--;
+    // Inicializar vector de subconjuntos con numero de elementos con cierto grado
+    par->subset_cvg = vector<cvg>(par->m);
+    for(int i=0; i<par->m; i++) {
+        par->subset_cvg[i].posSet = i;
+        par->subset_cvg[i].size = countSet(par->bF[i]);
+        par->subset_cvg[i].elems = 0;
     }
+    for( item mp_item : par->mp ) {
+        if(mp_item.rep >= GRADE) {
+            for(int ss : mp_item.subSets) {
+                par->subset_cvg[ss].elems++;
+            }
+        }
+    } 
+
+    sort(par->subset_cvg.begin(), par->subset_cvg.end(), [&](cvg a, cvg b){return (a.elems > b.elems) || (a.elems == b.elems && a.size > b.size);});
+    while(par->subset_cvg[par->subset_cvg.size()-1].elems == 0) par->subset_cvg.pop_back();
 
     par->n = countSet(par->X);
     if(PRINT) {
         cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
         cout << "|X| = " << par->n << endl;
         cout << "|F| = " << par->m << endl;
+        for(item mp_item : par->mp) {
+            cout << " - " << mp_item.value << " - " << endl;
+            cout << mp_item.rep << " subsets." << endl;
+            // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+        }
+        for(cvg mp_ss : par->subset_cvg) {
+            cout << "S" << (mp_ss.posSet+1) << ": |" << mp_ss.elems << "| elems with grade >= " << GRADE << endl;
+        }
     }
 }
 
