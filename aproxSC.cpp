@@ -15,9 +15,11 @@ using namespace std;
 using namespace cds;
 
 #define PRINT 1
-#define CHECK 1
+#define CHECK 0
 
 #define GRADE 2
+#define IT 100
+#define PCT_ROWS_DELETE 1
 
 typedef struct{
 	int value;
@@ -37,6 +39,8 @@ typedef struct {
 	vector<vector<int>> F;
     vector<ulong*> bF;
 
+    set<int> chi;
+    map<int,int> elem_pos;
     vector<item> mp;
     vector<cvg> subset_cvg;
     vector<ulong*> unique_elements;
@@ -52,13 +56,15 @@ ParProg* par;
 void readFile(string filename);
 void readFileScp(string filename);
 void readFilePartition(string filename);
-void analizeF();
+void analyzeF();
 void preprocess();
 
 void exhaustive_sol();
 void greedy();
 
 double jaccard(const ulong* A, const ulong* B);
+void aproxSC();
+vector<ulong*> greedyJC(vector<ulong*> init_sol);
 
 bool isCovered(vector<ulong*> chosenSets);
 ulong* unionF(const vector<ulong*> &F);
@@ -75,11 +81,13 @@ int main(int argc, char** argv) {
 		exit(EXIT_FAILURE);
 	}
 
+    srand(time(0));
+
     par = new ParProg();
 
     readFile(argv[1]);
     auto start_time = chrono::high_resolution_clock::now();
-    analizeF();
+    analyzeF();
     auto end_time = chrono::high_resolution_clock::now();
     auto dur_analyze = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
 
@@ -120,7 +128,7 @@ int main(int argc, char** argv) {
 
     //NEW EXHAUSTIVE ALGORITHM
     start_time = chrono::high_resolution_clock::now();
-    
+    aproxSC();
     end_time = chrono::high_resolution_clock::now();
     auto dur_apr = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     dur_apr += dur_preprocess + dur_analyze;
@@ -135,8 +143,8 @@ int main(int argc, char** argv) {
         cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
         cout << "AproxSC Cardinality: " << par->aprox_sol.size() << endl;
         cout << "Time [s]: " << dur_apr/1000000.0 << endl;
+        printSubsets(par->aprox_sol);
 
-        // printSubsets(par->greedy_sol);
     }
 
     cout << argv[1] << " " << par->n << " " << par->m << " " << dur_apr/1000000.0 << " " << par->aprox_sol.size() << " " << par->greedy_sol.size() << endl;
@@ -227,31 +235,45 @@ void readFilePartition(string filename) {
     file.close();
 }
 
-void analizeF() {
+void analyzeF() {
+    unordered_map<int, vector<int>> inSet;
+    for( int i=0; i<par->F.size(); i++ ) {
+        for( int e : par->F[i] ) {
+            par->chi.insert(e);
+            inSet[e].push_back(i);
+        }
+    }
+
+    par->n = par->chi.size();
+
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-    
     par->X = new ulong[par->nWX];
     fill(par->X, par->X + par->nWX, 0);
 
+    int pos = 0;
     par->mp = vector<item>(par->n);
+    for(pair<int, vector<int>> values : inSet){
+        setBit64(par->X, pos);
+        par->elem_pos[values.first] = pos;
+        par->mp[pos].value = values.first;
+        par->mp[pos].subSets = values.second;
+        par->mp[pos].rep = values.second.size();
+        pos++;
+    }
+
     ulong *bset;
-    for(int i=0; i<par->F.size(); i++){
+    for( int i=0; i<par->F.size(); i++ ) {
         bset = new ulong[par->nWX];
         fill(bset, bset + par->nWX, 0);
 
-        for(int e : par->F[i]) {
-            setBit64(par->X, (e-1));
-            par->mp[(e-1)].value = e;
-            par->mp[(e-1)].subSets.push_back(i);
-
-            setBit64(bset, (e-1));
+        for( int e : par->F[i] ) {
+            setBit64(bset, par->elem_pos[e]);
+            inSet[e].push_back(i);
         }
 
         par->bF.push_back(bset);
     }
-
-    for(int i=0; i<par->mp.size(); i++) par->mp[i].rep = par->mp[i].subSets.size();
 
     if(CHECK) {
         for(item mp_item : par->mp) {
@@ -266,6 +288,9 @@ void analizeF() {
     sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 
     if(CHECK) {
+        cout << "Universe elements = " << endl;
+        for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
+        cout << endl;
         cout << "X = " << countSet(par->X) << endl;
         cout << "n = " << par->n << endl;
         cout << "F = " << par->bF.size() << endl;
@@ -277,6 +302,53 @@ void analizeF() {
             // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
         }
     }
+    // par->nWX = (par->n)/(sizeof(ulong)*8);
+    // if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
+    
+    // par->X = new ulong[par->nWX];
+    // fill(par->X, par->X + par->nWX, 0);
+
+    // par->mp = vector<item>(par->n);
+    // ulong *bset;
+    // for(int i=0; i<par->F.size(); i++){
+    //     bset = new ulong[par->nWX];
+    //     fill(bset, bset + par->nWX, 0);
+
+    //     for(int e : par->F[i]) {
+    //         setBit64(par->X, (e-1));
+    //         par->mp[(e-1)].value = e;
+    //         par->mp[(e-1)].subSets.push_back(i);
+
+    //         setBit64(bset, (e-1));
+    //     }
+
+    //     par->bF.push_back(bset);
+    // }
+
+    // for(int i=0; i<par->mp.size(); i++) par->mp[i].rep = par->mp[i].subSets.size();
+
+    // if(CHECK) {
+    //     for(item mp_item : par->mp) {
+    //         cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
+    //         for (int index : mp_item.subSets) {
+    //             cout << index << " ";
+    //         }
+    //         cout << endl;
+    //     }
+    // }
+
+    // sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
+
+    // if(CHECK) {
+    //     cout << "X = " << countSet(par->X) << endl;
+    //     cout << "F = " << par->bF.size() << endl;
+
+    //     for(item mp_item : par->mp) {
+    //         cout << " - " << mp_item.value << " - " << endl;
+    //         cout << mp_item.rep << " subsets." << endl;
+    //         // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+    //     }
+    // }
 }
 
 void greedy() {
@@ -322,6 +394,143 @@ double jaccard(const ulong* A, const ulong* B) {
     return cont;
 }
 
+void aproxSC() {
+    vector<ulong*> new_sol;
+
+    //Solución inicial
+    par->aprox_sol = greedyJC(par->unique_elements);
+
+    cout << "Initial Sol. Cardinality: " << par->aprox_sol.size() << endl;
+
+    for(int iter=0; iter<IT; iter++){
+        cout << "--------------------------------------------" << endl;
+        cout << "IT: " << (iter+1) << endl;
+
+        
+
+        //Perturbación
+        new_sol = par->aprox_sol;
+        int nRowsDel = rand() % (int)(new_sol.size() * PCT_ROWS_DELETE) + 1;
+        int row;
+        for(int i=0; i<nRowsDel; i++) {
+            row = rand() % (new_sol.size()-par->unique_elements.size()) + par->unique_elements.size();
+            new_sol.erase(new_sol.begin() + row);
+        }
+        if(PRINT) cout << nRowsDel << " subsets deleted" << endl;
+
+        //Actualizar map
+        ulong* filled = unionF(new_sol);
+        for(int j=0; j<par->n; j++){
+            if(checkBit(filled, par->elem_pos[(j+1)]) == 0) {
+                item it_map;
+                it_map.value = (j+1);
+                for(int k=0; k<par->F.size(); k++) {
+                    if(find(par->F[k].begin(), par->F[k].end(), (j+1)) != par->F[k].end()) {
+                        it_map.subSets.push_back(k);
+                    }
+                }
+                it_map.rep = it_map.subSets.size();
+                par->mp.push_back(it_map);
+            }
+        }
+
+        sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
+
+        if(CHECK) {
+            for(item mp_item : par->mp) {
+                cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
+                for (int index : mp_item.subSets) {
+                    cout << index << " ";
+                }
+                cout << endl;
+            }
+        }
+        
+        // Nueva solución
+        new_sol = greedyJC(new_sol);
+        cout << "Sol. Cardinality: " << new_sol.size() << endl;
+        // printSubsets(new_sol);
+
+        if(new_sol.size() < par->aprox_sol.size()) {
+            par->aprox_sol = new_sol;
+        }
+        cout << "Best Cardinality: " << par->aprox_sol.size() << endl;
+    }
+
+    // for(ulong* ss: par->unique_elements) par->aprox_sol.push_back(ss);
+    
+}
+
+vector<ulong*> greedyJC(vector<ulong*> init_sol) {
+    int i;
+    ulong* U = new ulong[par->nWX];
+    vector<ulong*> C = init_sol;
+    ulong* unionSC = unionF(C);
+    for(i=0; i<par->nWX; i++) U[i] = par->X[i] & ~unionSC[i];
+    int posSet;
+    // vector<ulong*> subsets = par->bF;
+    vector<int> subsets;
+    double jc;
+    double bestJc = 0;
+    int grade;
+    int p;
+
+    while( countSet(U) > 0 ) {
+        grade = par->mp[0].rep;
+        p = 0;
+        while(p < par->mp.size() && par->mp[p].rep == grade) {
+            for(int ss : par->mp[p].subSets) subsets.push_back(ss);
+            p++;
+        }
+        // subsets = par->mp[0].subSets;
+
+        // for(int ss : subsets) cout << ss << " ";
+        // cout << endl;
+        if(rand() % 3) {
+            for(int ss : subsets) {
+                // cout << ss << endl;
+                // cout << jaccard(unionSC, subsets[i]) << endl;
+                // printSubset(subsets[i]);
+
+                // jc = jaccard(unionSC, par->bF[subsets[i]]);
+                jc = intersectionLength(U, par->bF[ss]);
+
+                if(jc > bestJc) {
+                    bestJc = jc;
+                    posSet = ss;
+                }
+            }
+        // }
+        } else {
+            posSet = subsets[rand() % (subsets.size())];
+        }
+
+        // printSubset(unionSC);
+        // printSubset(par->bF[posSet]);
+
+        for(i=0; i<par->nWX; i++) {
+            U[i] = U[i] & ~par->bF[posSet][i];
+            unionSC[i] |= par->bF[posSet][i];
+        }
+
+        C.push_back(par->bF[posSet]);
+
+        for(int e : par->F[posSet]) {
+            par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
+        }
+
+        if(CHECK) {
+            cout << bestJc << endl;
+            cout << posSet << endl;
+            cout << "U = " << countSet(U) << endl;
+        }
+        bestJc = 0;
+        subsets.clear();
+    }
+
+    return C;
+}
+
 void preprocess() {
     if(PRINT) {
         cout << "------------------------" << endl;
@@ -338,7 +547,7 @@ void preprocess() {
         // Eliminar subsets del map que no se usen
         for(int e : par->F[setIndex]) {
             par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
-            cleanBit64(par->X,(e-1));
+            cleanBit64(par->X,par->elem_pos[e]);
         }
 
         par->unique_elements.push_back(S);
@@ -347,28 +556,27 @@ void preprocess() {
     }
 
     // Inicializar vector de subconjuntos con numero de elementos con cierto grado
-    par->subset_cvg = vector<cvg>(par->m);
-    for(int i=0; i<par->m; i++) {
-        par->subset_cvg[i].posSet = i;
-        par->subset_cvg[i].size = countSet(par->bF[i]);
-        par->subset_cvg[i].elems = 0;
-    }
-    for( item mp_item : par->mp ) {
-        if(mp_item.rep >= GRADE) {
-            for(int ss : mp_item.subSets) {
-                par->subset_cvg[ss].elems++;
-            }
-        }
-    } 
+    // par->subset_cvg = vector<cvg>(par->m);
+    // for(int i=0; i<par->m; i++) {
+    //     par->subset_cvg[i].posSet = i;
+    //     par->subset_cvg[i].size = countSet(par->bF[i]);
+    //     par->subset_cvg[i].elems = 0;
+    // }
+    // for( item mp_item : par->mp ) {
+    //     if(mp_item.rep >= GRADE) {
+    //         for(int ss : mp_item.subSets) {
+    //             par->subset_cvg[ss].elems++;
+    //         }
+    //     }
+    // } 
 
-    sort(par->subset_cvg.begin(), par->subset_cvg.end(), [&](cvg a, cvg b){return (a.elems > b.elems) || (a.elems == b.elems && a.size > b.size);});
-    while(par->subset_cvg[par->subset_cvg.size()-1].elems == 0) par->subset_cvg.pop_back();
+    // sort(par->subset_cvg.begin(), par->subset_cvg.end(), [&](cvg a, cvg b){return (a.elems > b.elems) || (a.elems == b.elems && a.size > b.size);});
+    // while(par->subset_cvg[par->subset_cvg.size()-1].elems == 0) par->subset_cvg.pop_back();
 
-    par->n = countSet(par->X);
     if(PRINT) {
         cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
-        cout << "|X| = " << par->n << endl;
-        cout << "|F| = " << par->m << endl;
+        cout << "|X| = " << countSet(par->X) << endl;
+        cout << "|F| = " << par->bF.size() << endl;
         for(item mp_item : par->mp) {
             cout << " - " << mp_item.value << " - " << endl;
             cout << mp_item.rep << " subsets." << endl;
