@@ -1,14 +1,14 @@
 CPP=g++ -std=c++11
 CPPFLAGS=-O3 -DVERBOSE -fopenmp
 INCLUDES=-I./include/
-APRBW=./include/BasicCDS.cpp aproxSC.cpp
+GRASP=./include/BasicCDS.cpp graspSC.cpp
 # OPTCU=./include/BasicCDS.cpp optimo_cuda.cu
-BINS=apr
+BINS=grasp
 
-all: clean aprox
+all: clean grasp
 
-aprox: aproxSC.cpp
-	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o apr $(APRBW)
+grasp: graspSC.cpp
+	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o grasp $(GRASP)
 
 # optimo_cuda: optimo_cuda.cu
 # 	nvcc $(CUDAFLAGS) $(INCLUDES) -o opt_cu $(OPTCU)
