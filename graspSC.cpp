@@ -67,8 +67,8 @@ double jaccard(const ulong* A, const ulong* B);
 void graspSC();
 vector<int> randSuccintSC(ulong* U, vector<int> init_sol);
 
-bool isCovered(vector<ulong*> chosenSets);
-ulong* unionF(const vector<ulong*> &F);
+bool isCovered(vector<int> S);
+ulong* unionSets(const vector<int> &S);
 int countSet(const ulong* S);
 int intersectionLength(const ulong* A, const ulong* B);
 
@@ -136,11 +136,11 @@ int main(int argc, char** argv) {
     dur_apr += dur_preprocess + dur_analyze;
 
     if(CHECK) {
-        cout << "SOL: " << endl;
+        cout << "SOL: { ";
         for(int ss : par->aprox_sol) {
             cout << ss << " ";
         }
-        cout << endl;
+        cout << "}" << endl;
     }
     if(PRINT) {
         cout << "------------------------" << endl;
@@ -399,6 +399,8 @@ double jaccard(const ulong* A, const ulong* B) {
 void graspSC() {
     vector<int> new_sol;
     ulong* U = par->X;
+    int ss;
+    ulong* unionSC;
 
     //Solución inicial
     par->aprox_sol = randSuccintSC(U, par->unique_elements);
@@ -411,12 +413,30 @@ void graspSC() {
         int nRowsDel = rand() % (int)((new_sol.size()-par->unique_elements.size()) * PCT_ROWS_DELETE) + 1;
         int row;
 
+
+        if(PRINT) {
+            cout << "--------------------------------------------" << endl;
+            cout << "IT: " << (iter+1) << endl;
+            cout << nRowsDel << " subsets deleted" << endl;
+        }
+        if(CHECK) {
+            cout << "{ ";
+            for(int s : new_sol) {
+                cout << "S" << (s+1) << " ";
+            }
+            cout << "} => ";
+        }
+
         for(int i=0; i<nRowsDel; i++) {
             row = rand() % (new_sol.size()-par->unique_elements.size()) + par->unique_elements.size();
+            ss = new_sol[row];
+            if(CHECK) cout << "S" << (ss+1) << " ";
+            new_sol.erase(new_sol.begin() + row);
+            unionSC = unionSets(new_sol);
             
             // Actualizar U y map
-            for(int e : par->F[new_sol[row]]) {
-                if(checkBit(U, par->elem_pos[e]) == 0) {
+            for(int e : par->F[ss]) {
+                if(checkBit(unionSC, par->elem_pos[e]) == 0) {
                     item it_map;
                     it_map.value = e;
                     it_map.subSets = par->inSet[e];
@@ -426,18 +446,13 @@ void graspSC() {
                 }
 
             }
-            new_sol.erase(new_sol.begin() + row);
-        }
-
-        if(PRINT) {
-            cout << "--------------------------------------------" << endl;
-            cout << "IT: " << (iter+1) << endl;
-            cout << nRowsDel << " subsets deleted" << endl;
         }
 
         sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 
         if(CHECK) {
+            cout << "deleted" << endl;
+
             for(item mp_item : par->mp) {
                 cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
                 for (int index : mp_item.subSets) {
@@ -509,9 +524,9 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
         }
 
         if(CHECK) {
-            cout << bestCoverage << endl;
-            cout << posSet << endl;
-            cout << "U = " << countSet(U) << endl;
+            cout << "Best Coverage: " << bestCoverage << endl;
+            cout << "Pos. Subset: " << posSet << endl;
+            cout << "|U|: " << countSet(U) << endl;
         }
         bestCoverage = 0;
         subsets.clear();
@@ -576,8 +591,8 @@ void preprocess() {
     }
 }
 
-bool isCovered(vector<ulong*> chosenSets) {
-    ulong* coveredElements = unionF(chosenSets);
+bool isCovered(vector<int> S) {
+    ulong* coveredElements = unionSets(S);
     for (int i = 0; i < par->nWX; i++) if ((coveredElements[i] & par->X[i]) != par->X[i]) {
         delete[] coveredElements;
         return false;
@@ -586,10 +601,10 @@ bool isCovered(vector<ulong*> chosenSets) {
     return true;
 }
 
-ulong* unionF(const vector<ulong*> &F) {
+ulong* unionSets(const vector<int> &S) {
     ulong* C = new ulong[par->nWX];
     fill(C, C + par->nWX, 0);
-    for(const ulong* subset : F) for(int i=0; i<par->nWX; i++) C[i] |= subset[i];
+    for(const int s_idx : S) for(int i=0; i<par->nWX; i++) C[i] |= par->bF[s_idx][i];
     return C;
 }
 
