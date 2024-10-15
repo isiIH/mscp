@@ -19,7 +19,7 @@ using namespace cds;
 #define CHECK 0
 
 #define IT 100
-#define RCL 1
+#define RCL 0.7
 
 typedef struct{
 	int value;
@@ -416,7 +416,6 @@ void graspSC() {
     //Solución inicial
     // par->aprox_sol = randSuccintSC(U, par->unique_elements);
     par->aprox_sol = randGreedySC(U, par->unique_elements);
-
     par->mp.clear();
 
     if(PRINT) cout << "Initial Sol. Cardinality: " << par->aprox_sol.size() << endl;
@@ -495,7 +494,6 @@ void graspSC() {
         }
         
         // Nueva solución
-        // new_sol = randSuccintSC(U, new_sol);
         new_sol = randSuccintSC(U, new_sol);
 
         if(new_sol.size() < par->aprox_sol.size()) {
@@ -515,9 +513,10 @@ void graspSC() {
 
 vector<int> randGreedySC(ulong* U, vector<int> init_sol) {
     int i;
+    int function = rand() % 4;
     vector<int> C = init_sol;
-    int maxLengthSS = 0;
-    int lengthSS;
+    double maxLengthSS = par->n+1;
+    double lengthSS;
     int posSet;
 
     map<int, ulong*> subsets;
@@ -526,31 +525,49 @@ vector<int> randGreedySC(ulong* U, vector<int> init_sol) {
     while( countSet(U) > 0 ) {
 
         for(pair<int, ulong*> ss_pos : subsets){
-            lengthSS = intersectionLength(U, ss_pos.second);
-            if(lengthSS > maxLengthSS) {
+
+            switch(function) {
+                case 0: lengthSS = intersectionLength(U, ss_pos.second);
+                        if(lengthSS != 0) lengthSS = 1 / lengthSS;
+                        else lengthSS = 1;
+                        break;
+                case 1: lengthSS = 1/sqrt(intersectionLength(U, ss_pos.second)); break;
+                case 2: lengthSS = 1/log(1 + intersectionLength(U, ss_pos.second)); break;
+                case 3: lengthSS = jaccard(unionSets(C), ss_pos.second); break;
+            }
+            if(lengthSS < maxLengthSS) {
                 maxLengthSS = lengthSS;
                 posSet = ss_pos.first;
             }
         }
+        
 
         for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
         C.push_back(posSet);
         subsets.erase(posSet);
 
-        maxLengthSS = 0;
+        maxLengthSS = par->n+1;
     }
 
     return C;
 }
 
 vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
+    int function = rand() % 4;
     vector<int> C = init_sol;
     int posSet;
     vector<int> subsets;
     double coverage;
-    double bestCoverage = 0;
+    double bestCoverage = par->n+1;
     int grade;
     int p;
+
+    switch(function) {
+        case 0: cout << "Using function (1/rowsCovered)" << endl; break;
+        case 1: cout << "Using function (1/sqrt(rowsCovered))" << endl; break;
+        case 2: cout << "Using function (1/log(1 + rowsCovered))" << endl; break;
+        case 3: cout << "Using function jaccard(union_sol, subset)" << endl; break;
+    }
 
     while( countSet(U) > 0 ) {
         grade = par->mp[0].rep;
@@ -559,21 +576,25 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
             for(int ss : par->mp[p].subSets) subsets.push_back(ss);
             p++;
         }
-        if(1) {
-            for(int ss : subsets) {
-                // cout << ss << endl;
-                // cout << jaccard(unionSC, subsets[i]) << endl;
-                // printSubset(subsets[i]);
+        for(int ss : subsets) {
+            // cout << ss << endl;
+            // cout << jaccard(unionSC, subsets[i]) << endl;
+            // printSubset(subsets[i]);
 
-                // coverage = jaccard(unionSC, par->bF[subsets[i]]);
-                coverage = intersectionLength(U, par->bF[ss]);
-
-                if(coverage > bestCoverage) {
-                    bestCoverage = coverage;
-                    posSet = ss;
-                }
+            // coverage = jaccard(unionSC, par->bF[subsets[i]]);
+            switch(function) {
+                case 0: coverage = 1/intersectionLength(U, par->bF[ss]); break;
+                case 1: coverage = 1/sqrt(intersectionLength(U, par->bF[ss])); break;
+                case 2: coverage = 1/log(1 + intersectionLength(U, par->bF[ss])); break;
+                case 3: coverage = jaccard(unionSets(C), par->bF[ss]); break;
             }
-        } else {
+
+            if(coverage < bestCoverage) {
+                bestCoverage = coverage;
+                posSet = ss;
+            }
+        }
+        if(rand() % 10 == 0) {
             posSet = subsets[rand() % (subsets.size())];
         }
 
@@ -590,7 +611,7 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
             cout << "Pos. Subset: " << posSet << endl;
             cout << "|U|: " << countSet(U) << endl;
         }
-        bestCoverage = 0;
+        bestCoverage = par->n+1;
         subsets.clear();
     }
 
@@ -642,11 +663,11 @@ void preprocess() {
         cout << "Added " << par->unique_elements.size() << " subsets " << endl; 
         cout << "|X| = " << countSet(par->X) << endl;
         cout << "|F| = " << par->bF.size() << endl;
-        for(item mp_item : par->mp) {
-            cout << " - " << mp_item.value << " - " << endl;
-            cout << mp_item.rep << " subsets." << endl;
-            // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
-        }
+        // for(item mp_item : par->mp) {
+        //     cout << " - " << mp_item.value << " - " << endl;
+        //     cout << mp_item.rep << " subsets." << endl;
+        //     // for (int setIndex : mp_item.subSets) printSubset(par->bF[setIndex]);
+        // }
         // for(cvg mp_ss : par->subset_cvg) {
         //     cout << "S" << (mp_ss.posSet+1) << ": |" << mp_ss.elems << "| elems with grade >= " << GRADE << endl;
         // }
