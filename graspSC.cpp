@@ -10,6 +10,7 @@
 #include <map>
 #include <unordered_map>
 #include <numeric>
+#include <cassert>
 
 using namespace std;
 using namespace cds;
@@ -18,7 +19,7 @@ using namespace cds;
 #define CHECK 0
 
 #define IT 100
-#define PCT_ROWS_DELETE 1
+#define RCL 1
 
 typedef struct{
 	int value;
@@ -64,7 +65,9 @@ void exhaustive_sol();
 void greedy();
 
 double jaccard(const ulong* A, const ulong* B);
+int coverageSubset(vector<int> sets, const int pos);
 void graspSC();
+vector<int> randGreedySC(ulong* U, vector<int> init_sol);
 vector<int> randSuccintSC(ulong* U, vector<int> init_sol);
 
 bool isCovered(vector<int> S);
@@ -150,7 +153,9 @@ int main(int argc, char** argv) {
         cout << "Time [s]: " << dur_apr/1000000.0 << endl;
     }
 
-    cout << argv[1] << " " << par->n << " " << par->m << " " << dur_apr/1000000.0 << " " << par->aprox_sol.size() << " " << dur_greedyExh/1000000.0 << " " << par->greedy_sol.size() << endl;
+    assert(isCovered(par->aprox_sol) && "Solución inválida");
+
+    cout << argv[1] << " " << par->n << " " << par->m << " " << dur_greedyExh/1000000.0 << " " << par->greedy_sol.size() << " " << dur_apr/1000000.0 << " " << par->aprox_sol.size() << " " << endl;
 
     return 0;
 }
@@ -398,45 +403,71 @@ double jaccard(const ulong* A, const ulong* B) {
 
 void graspSC() {
     vector<int> new_sol;
-    ulong* U = par->X;
+    ulong* U = new ulong[par->nWX];
+    for(int i=0; i<par->nWX; i++) U[i] = par->X[i];
     int ss;
     ulong* unionSC;
+    int cvg;
+    int low_cvg = par->n+1;
+    int col;
+    int nRemove;
+    vector<int> setsRemoved;
 
     //Solución inicial
-    par->aprox_sol = randSuccintSC(U, par->unique_elements);
+    // par->aprox_sol = randSuccintSC(U, par->unique_elements);
+    par->aprox_sol = randGreedySC(U, par->unique_elements);
+
+    par->mp.clear();
 
     if(PRINT) cout << "Initial Sol. Cardinality: " << par->aprox_sol.size() << endl;
 
     for(int iter=0; iter<IT; iter++){
         //Perturbación
         new_sol = par->aprox_sol;
-        int nRowsDel = rand() % (int)((new_sol.size()-par->unique_elements.size()) * PCT_ROWS_DELETE) + 1;
-        int row;
-
+        nRemove = rand() % (int)ceil((new_sol.size() * RCL)) + 1;
 
         if(PRINT) {
             cout << "--------------------------------------------" << endl;
             cout << "IT: " << (iter+1) << endl;
-            cout << nRowsDel << " subsets deleted" << endl;
-        }
-        if(CHECK) {
-            cout << "{ ";
-            for(int s : new_sol) {
-                cout << "S" << (s+1) << " ";
-            }
-            cout << "} => ";
+            cout << nRemove << " subsets deleted" << endl;
         }
 
-        for(int i=0; i<nRowsDel; i++) {
-            row = rand() % (new_sol.size()-par->unique_elements.size()) + par->unique_elements.size();
-            ss = new_sol[row];
-            if(CHECK) cout << "S" << (ss+1) << " ";
-            new_sol.erase(new_sol.begin() + row);
-            unionSC = unionSets(new_sol);
-            
-            // Actualizar U y map
+        if(CHECK) {
+            cout << "{ ";
+            for(int i=0; i<new_sol.size(); i++) cout << "S" << new_sol[i] << " ";
+            cout << "}" << endl;
+        }
+
+        for(int i=0; i<nRemove; i++) {
+            // Cálculo de número de elementos cubiertos de cada set si se eliminara del SC
+            for(int s_idx = 0; s_idx < new_sol.size(); s_idx++) {
+                cvg = coverageSubset(new_sol, s_idx);
+
+                if(CHECK) {
+                    cout << "S" << new_sol[s_idx] << ": " << cvg << endl;
+                }
+
+                if(cvg < low_cvg) {
+                    low_cvg = cvg;
+                    col = s_idx;
+                }
+            }
+
+            if(CHECK) {
+                cout << "Removing S" << new_sol[col] << endl;
+            }
+            setsRemoved.push_back(new_sol[col]);
+            new_sol.erase(new_sol.begin() + col);
+
+
+            low_cvg = par->n+1;
+        }
+
+        // Actualizar U y map
+        unionSC = unionSets(new_sol);
+        for(int ss : setsRemoved)  {
             for(int e : par->F[ss]) {
-                if(checkBit(unionSC, par->elem_pos[e]) == 0) {
+                if(checkBit(U, par->elem_pos[e]) == 0 && checkBit(unionSC, par->elem_pos[e]) == 0) {
                     item it_map;
                     it_map.value = e;
                     it_map.subSets = par->inSet[e];
@@ -448,10 +479,11 @@ void graspSC() {
             }
         }
 
+        setsRemoved.clear();
+
         sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 
         if(CHECK) {
-            cout << "deleted" << endl;
 
             for(item mp_item : par->mp) {
                 cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
@@ -463,6 +495,7 @@ void graspSC() {
         }
         
         // Nueva solución
+        // new_sol = randSuccintSC(U, new_sol);
         new_sol = randSuccintSC(U, new_sol);
 
         if(new_sol.size() < par->aprox_sol.size()) {
@@ -474,11 +507,40 @@ void graspSC() {
             // printSubsets(new_sol);
             cout << "Best Cardinality: " << par->aprox_sol.size() << endl;
         }
-        
     }
 
     // for(ulong* ss: par->unique_elements) par->aprox_sol.push_back(ss);
     
+}
+
+vector<int> randGreedySC(ulong* U, vector<int> init_sol) {
+    int i;
+    vector<int> C = init_sol;
+    int maxLengthSS = 0;
+    int lengthSS;
+    int posSet;
+
+    map<int, ulong*> subsets;
+    for (i=0; i<par->bF.size(); i++) subsets[i] = par->bF[i];
+
+    while( countSet(U) > 0 ) {
+
+        for(pair<int, ulong*> ss_pos : subsets){
+            lengthSS = intersectionLength(U, ss_pos.second);
+            if(lengthSS > maxLengthSS) {
+                maxLengthSS = lengthSS;
+                posSet = ss_pos.first;
+            }
+        }
+
+        for(i=0; i<par->nWX; i++) U[i] = U[i] & ~subsets[posSet][i];
+        C.push_back(posSet);
+        subsets.erase(posSet);
+
+        maxLengthSS = 0;
+    }
+
+    return C;
 }
 
 vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
@@ -497,7 +559,7 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
             for(int ss : par->mp[p].subSets) subsets.push_back(ss);
             p++;
         }
-        if(rand() % 2) {
+        if(1) {
             for(int ss : subsets) {
                 // cout << ss << endl;
                 // cout << jaccard(unionSC, subsets[i]) << endl;
@@ -589,6 +651,15 @@ void preprocess() {
         //     cout << "S" << (mp_ss.posSet+1) << ": |" << mp_ss.elems << "| elems with grade >= " << GRADE << endl;
         // }
     }
+}
+
+int coverageSubset(vector<int> sets, int pos) {
+    ulong* S = par->bF[sets[pos]];
+    sets.erase(sets.begin() + pos);
+    ulong* sets_union = unionSets(sets);
+    int cont = 0;
+    for(int i=0; i<par->nWX; i++) cont += __builtin_popcountl(S[i] & ~sets_union[i]);
+    return cont;
 }
 
 bool isCovered(vector<int> S) {
