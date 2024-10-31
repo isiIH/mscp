@@ -1,13 +1,13 @@
 CPP=g++ -std=c++11
 CPPFLAGS=-O3 -DVERBOSE -fopenmp
 INCLUDES=-I./include/
-GRASP=./include/BasicCDS.cpp graspSC.cpp
+GRASP=./include/BasicCDS.cpp ./src/graspSC.cpp
 # OPTCU=./include/BasicCDS.cpp optimo_cuda.cu
 BINS=grasp
 
 all: clean grasp
 
-grasp: graspSC.cpp
+grasp: src/graspSC.cpp
 	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o grasp $(GRASP)
 
 # optimo_cuda: optimo_cuda.cu

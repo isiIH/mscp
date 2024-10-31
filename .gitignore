@@ -1,8 +1,5 @@
 *.pdf
 *.excalidraw
-greedyExh
-opt
-opt_cu
+grasp
 test_partition/
-test_scp/
 results/
