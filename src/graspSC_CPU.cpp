@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <numeric>
 #include <cassert>
+#include <omp.h>
 
 using namespace std;
 using namespace cds;
@@ -45,6 +46,7 @@ typedef struct {
 
     ulong sizeF, sizeNF;
 	ulong n, m, nWX;
+    int nt;
 
     int function;
     bool improve;
@@ -78,15 +80,18 @@ void printSubsets(const vector<ulong*> &C);
 
 int main(int argc, char** argv) {
 
-    if(argc !=3){
-		cout << "./opt <filename> <seed>" << endl;
+    if(argc !=4){
+		cout << "./opt <filename> <nt> <seed>" << endl;
 		exit(EXIT_FAILURE);
 	}
 
-    // srand(atoi(argv[2]));
-    srand(time(0));
-
     par = new ParProg();
+
+    par->nt = atoi(argv[2]);
+    omp_set_num_threads(par->nt);
+
+    // srand(atoi(argv[3]));
+    srand(time(0));
 
     readFile(argv[1]);
     auto start_time = chrono::high_resolution_clock::now();
@@ -366,119 +371,90 @@ vector<int> graspSC() {
     // Lista de elementos ordenados por grado
     createMap();
 
-    int i;
-    ulong* U = new ulong[par->nWX];
-    for(i=0; i<par->nWX; i++) U[i] = par->X[i];
-    vector<int> sol, new_sol;
-    par->worst_columns.assign(par->bF.size(), 1);
-    par->rep_colums.assign(par->bF.size(), 0);
-    ulong* unionSC;
-    int col;
-    int nRemove;
-    vector<int> setsRemoved;
+    vector<int> best_sol;
+    int best_size = 99999999;
     par->improve = false;
 
 
-    //Solución inicial
-    sol = randSuccintSC(U, par->unique_elements);
-
-    if(PRINT) cout << "Initial Sol. Cardinality: " << sol.size() << endl;
-
-    for(int iter=0; iter< MAX_ITER; iter++){
-        //Perturbación
-        new_sol = sol;
-        nRemove = rand() % (int)ceil((new_sol.size()-par->unique_elements.size()) * RCL) + 1;
-
-        if(PRINT) {
-            cout << "--------------------------------------------" << endl;
-            cout << "IT: " << (iter+1) << endl;
-            cout << nRemove << " subsets deleted" << endl;
-        }
-
-        if(CHECK) {
-            cout << "{ ";
-            for(int i=0; i<new_sol.size(); i++) cout << "S" << new_sol[i] << " ";
-            cout << "}" << endl;
-        }
-
-        for(int i=0; i<nRemove; i++) {
-            col = rand()%(new_sol.size()-par->unique_elements.size()) + par->unique_elements.size();
-            setsRemoved.push_back(new_sol[col]);
-            new_sol.erase(new_sol.begin() + col);
-        }
-
-        // Actualizar U y map
-        unionSC = unionSets(new_sol);
-        for(int ss : setsRemoved)  {
-            for(int e : par->F[ss]) {
-                if(!checkBit(unionSC, (e-1))) {
-                    item it_map;
-                    it_map.value = e;
-                    it_map.subSets = par->inSet[e];
-                    it_map.rep = it_map.subSets.size();
-                    par->mp.push_back(it_map);
-                    setBit64(U, (e-1));
-                }
-
-            }
-        }
-
-        setsRemoved.clear();
-
-        sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
-
-        if(CHECK) {
-
-            for(item mp_item : par->mp) {
-                cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
-                for (int index : mp_item.subSets) {
-                    cout << index << " ";
-                }
-                cout << endl;
-            }
-        }
+    #pragma omp parallel for default(none) shared(par, best_sol, best_size)
+    for(int th=0; th<par->nt; th++) {
+        ulong* U = new ulong[par->nWX];
+        for(int i=0; i<par->nWX; i++) U[i] = par->X[i];
+        ulong* unionSC;
+        vector<int> sol, new_sol, setsRemoved;
+        int numRemove, col;
         
-        // Nueva solución
-        new_sol = randSuccintSC(U, new_sol);
+        //Solución inicial
+        sol = randSuccintSC(U, par->unique_elements);
 
-        // Eliminar subsets redundantes (que no agregan elementos nuevos)
-        i=par->unique_elements.size();
-        while(i < new_sol.size()){
-            vector<int> sol = new_sol;
-            sol.erase(sol.begin() + i);
-            if(isCovered(sol)) {
-                if(CHECK) cout << "Redundant subset erased: " << new_sol[i] << endl;
-                new_sol.erase(new_sol.begin() + i);
-            }
-            else i++;
+        printf("Initial sol th %d: %ld\n", th, sol.size());
+
+        #pragma omp critical
+        {
+            if(sol.size() < best_size) {
+                printf("Updating best size...\n");
+                best_size = sol.size();
+                best_sol = sol;
+            } 
         }
 
-        if(new_sol.size() < sol.size()) {
-            sol = new_sol;
-            par->improve = true;
+        for(int iter=0; iter<MAX_ITER; iter++) {
+            //Perturbación
+            new_sol = sol;
+            numRemove = rand() % (int)ceil((new_sol.size()-par->unique_elements.size()) * RCL) + 1;
 
-            //Penalizar columnas repetidas en la solución anterior
-            // for(int ss : new_sol)  {
-            //     if(find(sol.begin(), sol.end(), ss) != sol.end()) {
-            //         par->rep_colums[ss]++;
-            //         par->worst_columns[ss] = 1.1;
-            //         if(CHECK) cout << "subset " << ss << " repeated" << endl;
-            //     } else {
-            //         par->worst_columns[ss] = 0.8;
-            //         par->rep_colums[ss] = 0;
-            //     }
-            // }
-        } else par->improve = false;
+            for(int i=0; i<numRemove; i++) {
+                col = rand()%(new_sol.size()-par->unique_elements.size()) + par->unique_elements.size();
+                setsRemoved.push_back(new_sol[col]);
+                new_sol.erase(new_sol.begin() + col);
+            }
 
-        if(PRINT) {
-            cout << endl;
-            cout << "Sol. Cardinality: " << new_sol.size() << endl;
-            // printSubsets(new_sol);
-            cout << "Best Cardinality: " << sol.size() << endl;
+            // Actualizar U y map
+            unionSC = unionSets(new_sol);
+            for(int ss : setsRemoved)  {
+                for(int e : par->F[ss]) {
+                    if(!checkBit(unionSC, (e-1)))
+                        setBit64(U, (e-1));
+                }
+            }
+
+            setsRemoved.clear();
+
+            // Nueva solución
+            new_sol = randSuccintSC(U, new_sol);
+
+            // Eliminar subsets redundantes (que no agregan elementos nuevos)
+            int i=par->unique_elements.size();
+            vector<int> sol_i;
+            while(i < new_sol.size()){
+                sol_i = new_sol;
+                sol_i.erase(sol_i.begin() + i);
+                if(isCovered(sol_i)) {
+                    new_sol.erase(new_sol.begin() + i);
+                }
+                else i++;
+            }
+
+            #pragma omp reduction(||:par->improve)
+            if(new_sol.size() < sol.size()) {
+                sol = new_sol;
+                par->improve = true;
+                #pragma omp critical
+                {
+                    if(sol.size() < best_size) {
+                        best_sol = sol;
+                        best_size = sol.size();
+                        printf("BEST_SOL %d\n", best_size);
+                    }
+                }
+            } else par->improve = false;
+
+            if(th == 0) {
+                printf("ITER %d SOL_SIZE %ld\n", iter, sol.size());
+            }
         }
     }
-
-    return sol;
+    return best_sol;
     
 }
 
@@ -498,22 +474,14 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
     vector<pair<int, int>> subsets_coverage;
     double rand_subset;
 
-    if(PRINT) {
-        switch(par->function) {
-            case 0: cout << "Using function (1/rowsCovered)" << endl; break;
-            case 1: cout << "Using function (1/sqrt(rowsCovered))" << endl; break;
-            case 2: cout << "Using function (1/log(1 + rowsCovered))" << endl; break;
-            case 3: cout << "Using function (1/rowsCovered²)" << endl; break;
-            default: break;
-        }
-    }
-
     while( countSet(U) > 0 ) {
-        grade = par->mp[0].rep;
         p = 0;
+        while(p < par->mp.size() && !checkBit(U, (par->mp[p].value-1))) p++;
+        grade = par->mp[p].rep; 
         // for(int i=0; i<par->nWX; i++) Ux[i] = 0;
         while(p < par->mp.size() && par->mp[p].rep == grade) {
-            for(int ss : par->mp[p].subSets) subsets.insert(ss);
+            if(checkBit(U, (par->mp[p].value-1)))
+                for(int ss : par->mp[p].subSets) subsets.insert(ss);
             // setBit64(Ux, par->elem_pos[par->mp[p].value]);
             p++;
         }
@@ -558,10 +526,6 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
         for(int i=0; i<par->nWX; i++) U[i] = U[i] & ~par->bF[posSet][i];
 
         C.push_back(posSet);
-
-        for(int e : par->F[posSet]) {
-            par->mp.erase(remove_if(par->mp.begin(), par->mp.end(), [e](const item& mp) {return mp.value == e;}), par->mp.end());
-        }
 
         if(CHECK) {
             cout << "Best Coverage: " << bestCoverage << endl;
