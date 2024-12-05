@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
-#include <chrono>
 #include "../include/BasicCDS.h"
 #include <cmath>
 #include <set>
@@ -12,6 +11,8 @@
 #include <numeric>
 #include <cassert>
 #include <omp.h>
+#include <limits.h>
+#include <execution>
 
 using namespace std;
 using namespace cds;
@@ -35,9 +36,6 @@ typedef struct {
 	vector<vector<int>> F;
     vector<ulong*> bF;
 
-    // set<int> chi;
-    // map<int,int> elem_pos;
-    unordered_map<int, vector<int>> inSet;
     vector<item> mp;
 
     vector<int> unique_elements;
@@ -61,14 +59,13 @@ void readFile(string filename);
 void readFileScp(string filename);
 void readFilePartition(string filename);
 void analyzeF();
-void createMap();
 void preprocess();
 
 void greedy();
 
 double jaccard(const ulong* A, const ulong* B);
 vector<int> graspSC();
-vector<int> randSuccintSC(ulong* U, vector<int> init_sol);
+vector<int> randSuccintSC(ulong* U, vector<int> init_sol, bool r);
 
 bool isCovered(vector<int> S);
 ulong* unionSets(const vector<int> &S);
@@ -94,10 +91,10 @@ int main(int argc, char** argv) {
     srand(time(0));
 
     readFile(argv[1]);
-    auto start_time = chrono::high_resolution_clock::now();
+    double start_time = omp_get_wtime();
     analyzeF();
-    auto end_time = chrono::high_resolution_clock::now();
-    auto dur_analyze = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    double end_time = omp_get_wtime();
+    double dur_analyze = end_time - start_time;
 
     if(PRINT) cout  << "X: " << par->n << " | F: " << par->m << endl;
 
@@ -123,21 +120,21 @@ int main(int argc, char** argv) {
     }
 
     //GREEDY
-    start_time = chrono::high_resolution_clock::now();
+    start_time = omp_get_wtime();
     greedy();
-    end_time = chrono::high_resolution_clock::now();
-    auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+    end_time = omp_get_wtime();
+    auto dur_greedyExh = end_time - start_time;
     dur_greedyExh += dur_analyze;
 
     //GRASP
     double dur_apr;
     vector<int> sol;
-    int best_card = 9999999;
+    int best_card = INT_MAX;
     for(int i=0; i<1; i++) {
-        start_time = chrono::high_resolution_clock::now();
+        start_time = omp_get_wtime();
         sol = graspSC();
-        end_time = chrono::high_resolution_clock::now();
-        auto time = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
+        end_time = omp_get_wtime();
+        double time = end_time - start_time;
         if(sol.size() < best_card) {
             par->aprox_sol = sol;
             best_card = sol.size();
@@ -156,14 +153,14 @@ int main(int argc, char** argv) {
     if(PRINT) {
         cout << "------------------------" << endl;
         cout << "Greedy Cardinality: " << par->greedy_sol.size() << endl;
-        cout << "Time [s]: " << dur_greedyExh/1000000.0 << endl;
+        cout << "Time [s]: " << dur_greedyExh << endl;
         cout << "GraspSC Cardinality: " << par->aprox_sol.size() << endl;
-        cout << "Time [s]: " << dur_apr/1000000.0 << endl;
+        cout << "Time [s]: " << dur_apr << endl;
     }
 
     assert(isCovered(par->aprox_sol) && "Solución inválida");
 
-    cout << argv[1] << " " << par->n << " " << par->m << " " << dur_greedyExh/1000000.0 << " " << par->greedy_sol.size() << " " << dur_apr/1000000.0 << " " << par->aprox_sol.size() << " " << endl;
+    cout << argv[1] << " " << par->n << " " << par->m << " " << dur_greedyExh << " " << par->greedy_sol.size() << " " << dur_apr << " " << par->aprox_sol.size() << " " << endl;
 
     return 0;
 }
@@ -252,74 +249,42 @@ void readFilePartition(string filename) {
 }
 
 void analyzeF() {
-    // for( int i=0; i<par->F.size(); i++ ) {
-    //     for( int e : par->F[i] ) {
-    //         par->chi.insert(e);
-    //         par->inSet[e].push_back(i);
-    //     }
-    // }
-
-    // par->n = par->chi.size();
-
-    // par->nWX = (par->n)/(sizeof(ulong)*8);
-    // if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-    // par->X = new ulong[par->nWX];
-    // fill(par->X, par->X + par->nWX, 0);
-    // for(int i=0; i<par->n; i++) setBit64(par->X, i);
-
-    // ulong *bset;
-    // for( int i=0; i<par->F.size(); i++ ) {
-    //     bset = new ulong[par->nWX];
-    //     fill(bset, bset + par->nWX, 0);
-
-    //     for( int e : par->F[i] ) {
-    //         setBit64(bset, par->elem_pos[e]);
-    //     }
-
-    //     par->bF.push_back(bset);
-    // }
-
-    // if(CHECK) {
-    //     cout << "Universe elements = " << endl;
-    //     for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
-    //     cout << endl;
-    //     cout << "X = " << countSet(par->X) << endl;
-    //     cout << "n = " << par->n << endl;
-    //     cout << "F = " << par->bF.size() << endl;
-    //     cout << "m = " << par->m << endl;
-    // }
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
     
     par->X = new ulong[par->nWX];
     fill(par->X, par->X + par->nWX, 0);
 
-    // par->mp = vector<item>(par->n);
-    ulong *bset;
+    par->mp = vector<item>(par->n);
+
+    #pragma parallel for schedule(dynamic, 1)
     for(int i=0; i<par->F.size(); i++){
-        bset = new ulong[par->nWX];
+        ulong *bset = new ulong[par->nWX];
         fill(bset, bset + par->nWX, 0);
 
         for(int e : par->F[i]) {
-            setBit64(par->X, (e-1));
-            par->inSet[e].push_back(i);
-            // par->mp[(e-1)].value = e;
-            // par->mp[(e-1)].subSets.push_back(i);
-
+            if(!checkBit(par->X, (e-1))) setBit64(par->X, (e-1));
+            par->mp[(e-1)].subSets.push_back(i);
             setBit64(bset, (e-1));
         }
 
         par->bF.push_back(bset);
     }
 
-    // for(int i=0; i<par->mp.size(); i++) par->mp[i].rep = par->mp[i].subSets.size();
+    #pragma omp parallel for
+    for(int i=0; i<par->mp.size(); i++) {
+        par->mp[i].value = i+1;
+        par->mp[i].rep = par->mp[i].subSets.size();
+    }
 
-    // sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
+    sort(std::execution::par_unseq, par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 
     if(CHECK) {
         cout << "X = " << countSet(par->X) << endl;
         cout << "F = " << par->bF.size() << endl;
     }
+
+    preprocess();
 }
 
 void greedy() {
@@ -368,39 +333,40 @@ double jaccard(const ulong* A, const ulong* B) {
 }
 
 vector<int> graspSC() {
-    // Lista de elementos ordenados por grado
-    createMap();
-
     vector<int> best_sol;
-    int best_size = 99999999;
+    int best_size = INT_MAX;
     par->improve = false;
+    vector<vector<int>> local_solutions(par->nt);
 
-
-    #pragma omp parallel for default(none) shared(par, best_sol, best_size)
-    for(int th=0; th<par->nt; th++) {
+    #pragma omp parallel default(none) shared(par, local_solutions, best_sol, best_size)
+    {
         ulong* U = new ulong[par->nWX];
         for(int i=0; i<par->nWX; i++) U[i] = par->X[i];
-        ulong* unionSC;
-        vector<int> sol, new_sol, setsRemoved;
-        int numRemove, col;
-        
+        int th = omp_get_thread_num();
+
         //Solución inicial
-        sol = randSuccintSC(U, par->unique_elements);
+        local_solutions[th] = randSuccintSC(U, par->unique_elements, true);
+        printf("Init sol. th%d: %ld\n", th, local_solutions[th].size());
 
-        printf("Initial sol th %d: %ld\n", th, sol.size());
+        #pragma omp barrier
 
-        #pragma omp critical
+        #pragma omp master
         {
-            if(sol.size() < best_size) {
-                printf("Updating best size...\n");
-                best_size = sol.size();
-                best_sol = sol;
-            } 
+            best_sol = *min_element(local_solutions.begin(), local_solutions.end(), 
+                    [](const vector<int>& a, const vector<int>& b) {
+                        return a.size() < b.size();
+                    });
+            best_size = best_sol.size();
+            printf("BEST INITIAL SIZE: %d\n", best_size);
         }
+
+        vector<int> new_sol, setsRemoved;
+        ulong* unionSC;
+        int numRemove, col;
 
         for(int iter=0; iter<MAX_ITER; iter++) {
             //Perturbación
-            new_sol = sol;
+            new_sol = local_solutions[th];
             numRemove = rand() % (int)ceil((new_sol.size()-par->unique_elements.size()) * RCL) + 1;
 
             for(int i=0; i<numRemove; i++) {
@@ -421,7 +387,7 @@ vector<int> graspSC() {
             setsRemoved.clear();
 
             // Nueva solución
-            new_sol = randSuccintSC(U, new_sol);
+            new_sol = randSuccintSC(U, new_sol, false);
 
             // Eliminar subsets redundantes (que no agregan elementos nuevos)
             int i=par->unique_elements.size();
@@ -436,36 +402,46 @@ vector<int> graspSC() {
             }
 
             #pragma omp reduction(||:par->improve)
-            if(new_sol.size() < sol.size()) {
-                sol = new_sol;
+            if(new_sol.size() < local_solutions[th].size()) {
+                local_solutions[th] = new_sol;
                 par->improve = true;
-                #pragma omp critical
-                {
-                    if(sol.size() < best_size) {
-                        best_sol = sol;
-                        best_size = sol.size();
-                        printf("BEST_SOL %d\n", best_size);
-                    }
-                }
             } else par->improve = false;
 
-            if(th == 0) {
-                printf("ITER %d SOL_SIZE %ld\n", iter, sol.size());
+            // if(th == 0) {
+            //     printf("ITER %d\nSol. Card: %ld\nBest Local Card: %ld\n", iter, new_sol.size(), local_solutions[th].size());
+            // }
+
+            #pragma omp barrier
+
+            #pragma omp master 
+            {
+                best_sol = *min_element(local_solutions.begin(), local_solutions.end(), 
+                    [](const vector<int>& a, const vector<int>& b) {
+                        return a.size() < b.size();
+                    });
+                best_size = best_sol.size();
+                printf("It:%d - Best Sol. %d\n", iter, best_size);
             }
+
+            #pragma omp barrier
+
+            // Mejorar la mitad de las soluciones si hay mejora (random)
+            if(par->improve && rand()%2 == 0) local_solutions[omp_get_thread_num()] = best_sol;
         }
     }
+
     return best_sol;
     
 }
 
-vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
+vector<int> randSuccintSC(ulong* U, vector<int> init_sol, bool r) {
     // par->function = rand() % 4;
     par->function = 0;
     vector<int> C = init_sol;
     int posSet;
     set<int> subsets;
     double coverage;
-    double bestCoverage = 99999999;
+    double bestCoverage = numeric_limits<double>::max();
     int grade;
     int p;
     // ulong* Ux = new ulong[par->nWX];
@@ -505,12 +481,12 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
                 bestCoverage = coverage;
                 posSet = ss;
             }
-            if(!par->improve) {
+            if(r && !par->improve) {
                 total += coverage;
                 subsets_coverage.push_back(make_pair(posSet, total));
             }
         }
-        if(!par->improve && rand() % 25 == 0) {
+        if(r && !par->improve && rand() % 100 == 0) {
             if(CHECK) cout << "random set" << endl;
             rand_subset = ((double) rand()) / RAND_MAX;
             for(int i=0; i<subsets_coverage.size(); i++) {
@@ -533,36 +509,11 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
             cout << "|U|: " << countSet(U) << endl;
             printSubset(U);
         }
-        bestCoverage = 99999999;
+        bestCoverage = numeric_limits<double>::max();
         subsets.clear();
     }
 
     return C;
-}
-
-void createMap() {
-    int pos = 0;
-    par->mp = vector<item>(par->n);
-    for(pair<int, vector<int>> values : par->inSet){
-        // par->elem_pos[values.first] = pos;
-        par->mp[pos].value = values.first;
-        par->mp[pos].subSets = values.second;
-        par->mp[pos].rep = values.second.size();
-        pos++;
-    }
-    sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
-
-    preprocess();
-
-    if(CHECK) {
-        for(item mp_item : par->mp) {
-            cout << "(" << mp_item.value << ") |" << mp_item.rep << "| => ";
-            for (int index : mp_item.subSets) {
-                cout << index << " ";
-            }
-            cout << endl;
-        }
-    }
 }
 
 void preprocess() {
@@ -591,32 +542,6 @@ void preprocess() {
         cout << "|X| = " << countSet(par->X) << endl;
         cout << "|F| = " << par->bF.size() << endl;
     }
-
-    // int numberDom = 0;
-    // vector<bool> domin(par->bF.size(), true);
-    // for (int i = 0; i < par->bF.size(); i++) {
-    //     for (int j = i + 1; j < par->bF.size(); j++) {
-    //         // Check if F[i] dominates F[j] or vice versa
-    //         if(domin[i] && domin[j]) {
-    //             if(countSet(par->bF[i]) < countSet(par->bF[j])) {
-    //                 if(intersectionLength(par->bF[i], par->bF[j]) == countSet(par->bF[i])) {
-    //                     numberDom++;
-    //                     domin[i] = false;
-    //                     // printSubset(par->bF[i]);
-    //                     break;
-    //                 }
-    //             } else {
-    //                 if(intersectionLength(par->bF[i], par->bF[j]) == countSet(par->bF[j])) {
-    //                     numberDom++;
-    //                     domin[j] = false;
-    //                     // printSubset(par->bF[j]);
-    //                 }
-    //             }
-    //         }
-    //     }
-    // }
-
-    // cout << numberDom << endl;
 }
 
 bool isCovered(vector<int> S) {

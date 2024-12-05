@@ -1,9 +1,8 @@
-CPP=g++ -std=c++11
+CPP=g++ -std=c++17
 CPPFLAGS=-O3 -DVERBOSE -fopenmp
 INCLUDES=-I./include/
 GRASP=./include/BasicCDS.cpp ./src/graspSC.cpp
 GRASPCPU=./include/BasicCDS.cpp ./src/graspSC_CPU.cpp
-# OPTCU=./include/BasicCDS.cpp optimo_cuda.cu
 BINS=grasp graspCPU
 
 all: clean grasp grasp_cpu
