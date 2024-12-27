@@ -34,8 +34,6 @@ typedef struct {
 	vector<vector<int>> F;
     vector<ulong*> bF;
 
-    // set<int> chi;
-    // map<int,int> elem_pos;
     unordered_map<int, vector<int>> inSet;
     vector<item> mp;
 
@@ -64,7 +62,6 @@ void preprocess();
 
 void greedy();
 
-double jaccard(const ulong* A, const ulong* B);
 vector<int> graspSC();
 vector<int> randSuccintSC(ulong* U, vector<int> init_sol);
 
@@ -247,49 +244,12 @@ void readFilePartition(string filename) {
 }
 
 void analyzeF() {
-    // for( int i=0; i<par->F.size(); i++ ) {
-    //     for( int e : par->F[i] ) {
-    //         par->chi.insert(e);
-    //         par->inSet[e].push_back(i);
-    //     }
-    // }
-
-    // par->n = par->chi.size();
-
-    // par->nWX = (par->n)/(sizeof(ulong)*8);
-    // if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
-    // par->X = new ulong[par->nWX];
-    // fill(par->X, par->X + par->nWX, 0);
-    // for(int i=0; i<par->n; i++) setBit64(par->X, i);
-
-    // ulong *bset;
-    // for( int i=0; i<par->F.size(); i++ ) {
-    //     bset = new ulong[par->nWX];
-    //     fill(bset, bset + par->nWX, 0);
-
-    //     for( int e : par->F[i] ) {
-    //         setBit64(bset, par->elem_pos[e]);
-    //     }
-
-    //     par->bF.push_back(bset);
-    // }
-
-    // if(CHECK) {
-    //     cout << "Universe elements = " << endl;
-    //     for( pair<int, int> values : par->elem_pos ) if(getBit64(par->X, values.second)) cout << values.first << " ";
-    //     cout << endl;
-    //     cout << "X = " << countSet(par->X) << endl;
-    //     cout << "n = " << par->n << endl;
-    //     cout << "F = " << par->bF.size() << endl;
-    //     cout << "m = " << par->m << endl;
-    // }
     par->nWX = (par->n)/(sizeof(ulong)*8);
     if ((par->n)%(sizeof(ulong)*8)>0) par->nWX++;
     
     par->X = new ulong[par->nWX];
     fill(par->X, par->X + par->nWX, 0);
 
-    // par->mp = vector<item>(par->n);
     ulong *bset;
     for(int i=0; i<par->F.size(); i++){
         bset = new ulong[par->nWX];
@@ -298,18 +258,11 @@ void analyzeF() {
         for(int e : par->F[i]) {
             setBit64(par->X, (e-1));
             par->inSet[e].push_back(i);
-            // par->mp[(e-1)].value = e;
-            // par->mp[(e-1)].subSets.push_back(i);
-
             setBit64(bset, (e-1));
         }
 
         par->bF.push_back(bset);
     }
-
-    // for(int i=0; i<par->mp.size(); i++) par->mp[i].rep = par->mp[i].subSets.size();
-
-    // sort(par->mp.begin(), par->mp.end(), [&](item a, item b){return a.rep < b.rep;});
 
     if(CHECK) {
         cout << "X = " << countSet(par->X) << endl;
@@ -347,19 +300,6 @@ void greedy() {
     }
 
     par->greedy_sol = C;
-}
-
-double jaccard(const ulong* A, const ulong* B) {
-    double cont = 0.0;
-    for(int i = 0; i < par->nWX; i++) {
-        int inter_set = __builtin_popcountl(A[i] & B[i]);
-        int union_set = __builtin_popcountl(A[i] | B[i]);
-        
-        if (union_set > 0) {
-            cont += (double)(inter_set) / union_set;
-        }
-    }
-    return cont;
 }
 
 vector<int> graspSC() {
@@ -607,6 +547,16 @@ void preprocess() {
         cout << "Executing PreSetCover..." << endl;
         cout << "------------------------" << endl;
     }
+
+
+    // Universe Segmentation
+    // vector<ulong*> ad
+    // for(int i=0; i<par->bF.size(); i++) {
+    //     for(int j=0; j<par->bF.size(); j++) {
+    //         intersectionLength(par->bF[i], par->bF[j])
+    //     }
+    // }
+
     // Add uniques elements - Row Reduction
     int setIndex;
     ulong* S;
