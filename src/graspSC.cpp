@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <numeric>
 #include <cassert>
+#include "../include/Group.h"
 
 using namespace std;
 using namespace cds;
@@ -116,7 +117,7 @@ int main(int argc, char** argv) {
 
     //GREEDY
     start_time = chrono::high_resolution_clock::now();
-    greedy();
+    // greedy();
     end_time = chrono::high_resolution_clock::now();
     auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     dur_greedyExh += dur_analyze;
@@ -220,7 +221,7 @@ void readFilePartition(string filename) {
         exit(EXIT_FAILURE);
     }
     string line,item;
-
+ 
     //m & n
 	getline(file>>std::ws,line);
     istringstream ss(line);
@@ -305,6 +306,7 @@ void greedy() {
 vector<int> graspSC() {
     // Lista de elementos ordenados por grado
     createMap();
+    return vector<int>(1);
 
     int i;
     ulong* U = new ulong[par->nWX];
@@ -548,14 +550,31 @@ void preprocess() {
         cout << "------------------------" << endl;
     }
 
-
     // Universe Segmentation
-    // vector<ulong*> ad
-    // for(int i=0; i<par->bF.size(); i++) {
-    //     for(int j=0; j<par->bF.size(); j++) {
-    //         intersectionLength(par->bF[i], par->bF[j])
-    //     }
-    // }
+    Graph graph;
+    for(int i=0; i<par->bF.size()-1; i++) {
+            for(int j=i+1; j<par->bF.size(); j++) {
+                if(intersectionLength(par->bF[i], par->bF[j]) != 0)
+                    graph.add_edge(i, j);
+            }
+    }
+
+    graph.print();
+    Group g(graph, par->bF.size());
+    g.create_groups();
+    // g.print();
+    cout << "Original Groups: " << g.groups() << endl;
+
+    // Check for a segmentation ignoring a subset
+    for(int k=0; k<par->bF.size(); k++) {
+        Group grupo(graph, par->bF.size(), k);
+        grupo.create_groups();
+        if(grupo.groups() > 1)
+            cout << "Ignoring subset " << k << ": " << grupo.groups() << " groups" << endl;
+        // grupo.print();
+    }
+
+    return;
 
     // Add uniques elements - Row Reduction
     int setIndex;
