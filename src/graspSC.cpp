@@ -22,7 +22,7 @@ using namespace cds;
 
 // Parámetros
 #define RCL 0.7
-#define MAX_ITER 300
+#define MAX_ITER 1
 
 // Structure with all globals parameters program
 typedef struct {
@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
 
     //GREEDY
     start_time = chrono::high_resolution_clock::now();
-    greedy();
+    // greedy();
     end_time = chrono::high_resolution_clock::now();
     auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     dur_greedyExh += dur_analyze;
@@ -149,7 +149,7 @@ void greedy() {
     map<int, ulong*> subsets;
     for (i=0; i<prob.bF.size(); i++) subsets[i] = prob.bF[i];
 
-    while( prob.countSet(U) > 0 ) {
+    while( prob.countSet(U, prob.nWX) > 0 ) {
 
         for(pair<int, ulong*> ss_pos : subsets){
             lengthSS = prob.intersectionLength(U, ss_pos.second);
@@ -297,7 +297,7 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
         }
     }
 
-    while( prob.countSet(U) > 0 ) {
+    while( prob.countSet(U, prob.nWX) > 0 ) {
         p = par->last_visited;
         
         while(p < prob.mp.size() && !checkBit(U, (prob.mp[p].value-1))) p++;
@@ -359,7 +359,7 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
         if(CHECK) {
             cout << "Best Coverage: " << bestCoverage << endl;
             cout << "Pos. Subset: " << posSet << endl;
-            cout << "|U|: " << prob.countSet(U) << endl;
+            cout << "|U|: " << prob.countSet(U, prob.nWX) << endl;
             prob.printSubset(U);
         }
         bestCoverage = numeric_limits<double>::max();;
@@ -406,9 +406,19 @@ void preprocess() {
     for(int u=0; u<prob.bF.size(); u++) {
         if(!visited[u]) {
             for(int v : graph.adj_list[u]) {
-                if(!visited[v] && prob.intersectionLength(prob.bF[u], prob.bF[v]) == prob.countSet(prob.bF[u])) {
-                    // printSubset(prob.bF[u]);
-                    // printSubset(prob.bF[v]);
+                if(!visited[v] && prob.intersectionLength(prob.bF[u], prob.bF[v]) == prob.countSet(prob.bF[u], prob.nWX)) {
+                    // prob.printSubset(prob.bF[u]);
+                    // prob.printSubset(prob.bF[v]);
+                    cout << u << endl;
+                    for(int e : prob.F[u]) {
+                        cout << e << " ";
+                    }
+                    cout << endl;
+                    cout << v << endl;
+                    for(int e : prob.F[v]) {
+                        cout << e << " ";
+                    }
+                    cout << endl;
                     visited[u] = true;
                     setBit64(prob.excluded_subsets, u);
                     break;
@@ -463,8 +473,8 @@ void preprocess() {
 
     if(PRINT) {
         cout << "Added " << prob.unique_elements.size() << " subsets" << endl; 
-        cout << "Excluded " << prob.countSet(prob.excluded_subsets) << " subsets" << endl;
-        cout << "|X| = " << prob.countSet(prob.X) << endl;
+        cout << "Excluded " << prob.countSet(prob.excluded_subsets, prob.nWF) << " subsets" << endl;
+        cout << "|X| = " << prob.countSet(prob.X, prob.nWX) << endl;
         cout << "|F| = " << prob.bF.size() << endl;
     }
 }

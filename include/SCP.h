@@ -140,7 +140,7 @@ public:
         }
 
         if(CHECK) {
-            cout << "X = " << countSet(X) << endl;
+            cout << "X = " << countSet(X, nWX) << endl;
             cout << "F = " << bF.size() << endl;
         }
     }
@@ -168,9 +168,9 @@ public:
         return cont;
     }
 
-    int countSet(const ulong* S){
+    int countSet(const ulong* S, const int word){
         int cont = 0;
-        for(int i=0; i<nWX; i++) {
+        for(int i=0; i<word; i++) {
             cont += __builtin_popcountl(S[i]);
         }
         return cont;
