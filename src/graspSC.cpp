@@ -22,7 +22,7 @@ using namespace cds;
 
 // Parámetros
 #define RCL 0.7
-#define MAX_ITER 1
+#define MAX_ITER 100
 
 // Structure with all globals parameters program
 typedef struct {
@@ -93,7 +93,7 @@ int main(int argc, char** argv) {
 
     //GREEDY
     start_time = chrono::high_resolution_clock::now();
-    // greedy();
+    greedy();
     end_time = chrono::high_resolution_clock::now();
     auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     dur_greedyExh += dur_analyze;
@@ -211,6 +211,7 @@ vector<int> graspSC() {
         for(int i=0; i<nRemove; i++) {
             col = rand()%(new_sol.size()-prob.unique_elements.size()) + prob.unique_elements.size();
             setsRemoved.push_back(new_sol[col]);
+            
             new_sol.erase(new_sol.begin() + col);
         }
 
@@ -360,7 +361,7 @@ vector<int> randSuccintSC(ulong* U, vector<int> init_sol) {
             cout << "Best Coverage: " << bestCoverage << endl;
             cout << "Pos. Subset: " << posSet << endl;
             cout << "|U|: " << prob.countSet(U, prob.nWX) << endl;
-            prob.printSubset(U);
+            // prob.printSubset(U);
         }
         bestCoverage = numeric_limits<double>::max();;
         subsets.clear();
@@ -389,7 +390,7 @@ void preprocess() {
     Group g(graph, prob.bF.size());
     g.create_groups();
     // g.print();
-    // cout << "Original Groups: " << g.groups() << endl;
+    cout << "Original Groups: " << g.groups() << endl;
 
     // Check for a segmentation ignoring a subset
     // for(int k=0; k<prob.bF.size(); k++) {
@@ -409,16 +410,6 @@ void preprocess() {
                 if(!visited[v] && prob.intersectionLength(prob.bF[u], prob.bF[v]) == prob.countSet(prob.bF[u], prob.nWX)) {
                     // prob.printSubset(prob.bF[u]);
                     // prob.printSubset(prob.bF[v]);
-                    cout << u << endl;
-                    for(int e : prob.F[u]) {
-                        cout << e << " ";
-                    }
-                    cout << endl;
-                    cout << v << endl;
-                    for(int e : prob.F[v]) {
-                        cout << e << " ";
-                    }
-                    cout << endl;
                     visited[u] = true;
                     setBit64(prob.excluded_subsets, u);
                     break;
