@@ -27,7 +27,7 @@ public:
     Grasp(SCP &scp);
 
     SetCover search();
-    void randSuccintSC(Set U, SetCover &C);
+    void randSuccintSC(Set &U, SetCover &C);
 };
 
 #endif

@@ -17,17 +17,14 @@ public:
     vector<vector<int>> F;
     vector<Set> bF;
 
-    vector<int> uniqueSets;
-    Set excludedSets;
-
     ulong n, m, nWX, nWF;
 
     SCP();
-    SCP(string filename);
+    SCP(const string filename);
 
-    void readFile(string filename);
-    void readFileScp(string filename);
-    void readFilePartition(string filename);
+    void readFile(const string filename);
+    void readFileScp(const string filename);
+    void readFilePartition(const string filename);
     void analyzeF();
     void printSubsets(const vector<Set> &C);
 

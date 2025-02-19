@@ -3,117 +3,120 @@
 Grasp::Grasp(SCP &scp): scp(scp) {}
 
 SetCover Grasp::search() {
+    // Preprocess
+    SetCover initialSol(scp);
+
     int i;
     Set U(scp.X);
-    SetCover sol(scp);
-    SetCover new_sol = sol;
-    ulong* unionSC;
+    SetCover newSol, bestSol = initialSol;
+    Set unionSC;
     int col;
     int nRemove;
     vector<int> setsRemoved;
     improve = false;
 
-
     // Initial solution
-    // randSuccintSC(U, sol);
+    randSuccintSC(U, bestSol);
 
-    // if(PRINT) cout << "Initial Sol. Cardinality: " << sol.size() << endl;
+    improve = true;
 
-    // for(int iter=0; iter< MAX_ITER; iter++){
-    //     // Perturbation
-    //     new_sol = sol;
-    //     nRemove = rand() % (int)ceil((new_sol.size()-scp.uniqueSets.size()) * RCL) + 1;
+    if(PRINT) cout << "Initial Sol. Cardinality: " << bestSol.size() << endl;
 
-    //     if(PRINT) {
-    //         cout << "--------------------------------------------" << endl;
-    //         cout << "IT: " << (iter+1) << endl;
-    //         cout << nRemove << " subsets deleted" << endl;
-    //     }
+    for(int iter=0; iter< MAX_ITER; iter++){
+        // Perturbation
+        newSol = bestSol;
+        nRemove = rand() % (int)ceil((newSol.size()-newSol.uniqueSets.size()) * RCL) + 1;
 
-    //     if(CHECK) {
-    //         cout << "{ ";
-    //         for(int i=0; i<new_sol.size(); i++) cout << "S" << new_sol[i] << " ";
-    //         cout << "}" << endl;
-    //     }
+        if(PRINT) {
+            cout << "--------------------------------------------" << endl;
+            cout << "IT: " << (iter+1) << endl;
+            cout << nRemove << " subsets deleted" << endl;
+        }
 
-    //     for(int i=0; i<nRemove; i++) {
-    //         col = rand()%(new_sol.size()-scp.uniqueSets.size()) + scp.uniqueSets.size();
-    //         setsRemoved.push_back(new_sol[col]);
+        if(CHECK) {
+            cout << "{ ";
+            for(int i=0; i<newSol.size(); i++) cout << "S" << newSol.solution[i] << " ";
+            cout << "}" << endl;
+        }
+
+        for(int i=0; i<nRemove; i++) {
+            col = rand()%(newSol.size()-newSol.uniqueSets.size()) + newSol.uniqueSets.size();
+            setsRemoved.push_back(newSol.solution[col]);
+
+            if(CHECK) {
+                cout << newSol.solution[col] << endl;
+            }
             
-    //         new_sol.erase(new_sol.begin() + col);
-    //     }
+            
+            newSol.solution.erase(newSol.solution.begin() + col);
+        }
 
-    //     // Update U
-    //     unionSC = scp.unionSets(new_sol);
-    //     for(int ss : setsRemoved)  {
-    //         for(int e : scp.F[ss]) {
-    //             if(!checkBit(unionSC, (e-1)))
-    //                 setBit64(U, (e-1));
-    //         }
-    //     }
+        // Update RowMap & U
+        unionSC = newSol.unionSets();
+        for(RowCovering row : initialSol.rowMap)  {
+            if(!unionSC.check(row.row)) {
+                newSol.rowMap.push_back(row);
+                U.push_back(row.row);
+            }
+        }
+        setsRemoved.clear();
 
-    //     setsRemoved.clear();
 
-    //     // sort(C.rowMap.begin(), C.rowMap.end(), [&](RowCovering a, RowCovering b){return a.n_columns < b.n_columns;});
-        
-    //     // Nueva solución
-    //     new_sol = randSuccintSC(U, new_sol);
+        // New solution
+        randSuccintSC(U, newSol);
 
-    //     // Eliminar subsets redundantes (que no agregan elementos nuevos)
-    //     i=scp.uniqueSets.size();
-    //     while(i < new_sol.size()){
-    //         vector<int> sol = new_sol;
-    //         sol.erase(sol.begin() + i);
-    //         if(scp.isCovered(sol)) {
-    //             if(CHECK) cout << "Redundant subset erased: " << new_sol[i] << endl;
-    //             new_sol.erase(new_sol.begin() + i);
-    //         }
-    //         else i++;
-    //     }
 
-    //     if(new_sol.size() < sol.size()) {
-    //         sol = new_sol;
-    //         par->improve = true;
+        // Eliminar subsets redundantes (que no agregan elementos nuevos)
+        // i=newSol.uniqueSets.size();
+        // while(i < newSol.size()){
+        //     SetCover sol = newSol;
+        //     sol.solution.erase(sol.solution.begin() + i);
+        //     if(sol.isCovered()) {
+        //         if(CHECK) cout << "Redundant subset erased: " << newSol.solution[i] << endl;
+        //         newSol.solution.erase(newSol.solution.begin() + i);
+        //     }
+        //     else i++;
+        // }
 
-    //         //Penalizar columnas repetidas en la solución anterior
-    //         // for(int ss : new_sol)  {
-    //         //     if(find(sol.begin(), sol.end(), ss) != sol.end()) {
-    //         //         scp.n_columns_colums[ss]++;
-    //         //         scp.worst_columns[ss] = 1.1;
-    //         //         if(CHECK) cout << "subset " << ss << " repeated" << endl;
-    //         //     } else {
-    //         //         scp.worst_columns[ss] = 0.8;
-    //         //         scp.n_columns_colums[ss] = 0;
-    //         //     }
-    //         // }
-    //     } else par->improve = false;
+        if(newSol.size() < bestSol.size()) {
+            bestSol = newSol;
+            // improve = true;
 
-    //     if(PRINT) {
-    //         cout << endl;
-    //         cout << "Sol. Cardinality: " << new_sol.size() << endl;
-    //         // printSubsets(new_sol);
-    //         cout << "Best Cardinality: " << sol.size() << endl;
-    //     }
-    // }
+            //Penalizar columnas repetidas en la solución anterior
+            // for(int ss : new_sol)  {
+            //     if(find(sol.begin(), sol.end(), ss) != sol.end()) {
+            //         scp.n_columns_colums[ss]++;
+            //         scp.worst_columns[ss] = 1.1;
+            //         if(CHECK) cout << "subset " << ss << " repeated" << endl;
+            //     } else {
+            //         scp.worst_columns[ss] = 0.8;
+            //         scp.n_columns_colums[ss] = 0;
+            //     }
+            // }
+        }
+        // } else improve = false;
 
-    return sol;
+        if(PRINT) {
+            cout << endl;
+            cout << "Sol. Cardinality: " << newSol.size() << endl;
+            // printSubsets(new_sol);
+            cout << "Best Cardinality: " << bestSol.size() << endl;
+        }
+    }
+
+    return bestSol;
     
 }
 
-void Grasp::randSuccintSC(Set U, SetCover &C) {
+void Grasp::randSuccintSC(Set &U, SetCover &C) {
     // scp.function = rand() % 4;
     function = 0;
-    int posSet;
     set<int> subsets;
-    double coverage;
-    double bestCoverage = numeric_limits<double>::max();
-    int grade;
-    int p;
-    // ulong* Ux = new ulong[scp.nWX];
+    double coverage, bestCoverage;
+    int grade, p, bestSet;
 
-    double total = 0;
+    double rand_subset, total = 0;
     vector<pair<int, int>> subsets_coverage;
-    double rand_subset;
 
     if(PRINT) {
         switch(function) {
@@ -125,23 +128,24 @@ void Grasp::randSuccintSC(Set U, SetCover &C) {
         }
     }
 
-    while( U.size() > 0 ) {
-        p = last_visited;
-        
-        while(p < C.rowMap.size() && !U.check(C.rowMap[p].row-1)) p++;
+    while( C.rowMap.size() > 0 ) { // Iterate until rowMap is empty
+        p = 0;
         grade = C.rowMap[p].n_columns;
-        // for(int i=0; i<scp.nWX; i++) Ux[i] = 0;
+        bestCoverage = numeric_limits<double>::max();
+        
+        // Collect all the elements'subsets of grade K
         while(p < C.rowMap.size() && C.rowMap[p].n_columns == grade) {
-            if(U.check(C.rowMap[p].row-1))
-                for(int ss : C.rowMap[p].col_covering) subsets.insert(ss);
-            // setBit64(Ux, scp.elem_pos[C.rowMap[p].row]);
+            for(int ss : C.rowMap[p].col_covering) subsets.insert(ss);
             p++;
         }
+
         if(CHECK) {
+            cout << "grade: " << grade << endl;
             for(int ss : subsets) cout << ss << " ";
             cout << endl;
         }
 
+        // Evaluate each subset with a coverage function
         for(int ss : subsets) {
             coverage = U.intersectionLength(scp.bF[ss]);
             switch(function) {
@@ -152,15 +156,13 @@ void Grasp::randSuccintSC(Set U, SetCover &C) {
                 default: break;
             }
 
-            // coverage *= scp.worst_columns[ss];
-
             if(coverage < bestCoverage) {
                 bestCoverage = coverage;
-                posSet = ss;
+                bestSet = ss;
             }
             if(!improve) {
                 total += coverage;
-                subsets_coverage.push_back(make_pair(posSet, total));
+                subsets_coverage.push_back(make_pair(bestSet, total));
             }
         }
         if(!improve && rand() % 25 == 0) {
@@ -168,7 +170,7 @@ void Grasp::randSuccintSC(Set U, SetCover &C) {
             rand_subset = ((double) rand()) / RAND_MAX;
             for(int i=0; i<subsets_coverage.size(); i++) {
                 if(rand_subset <= subsets_coverage[i].second / total) {
-                    posSet = subsets_coverage[i].first;
+                    bestSet = subsets_coverage[i].first;
                     break;
                 }
             }
@@ -176,20 +178,20 @@ void Grasp::randSuccintSC(Set U, SetCover &C) {
             total = 0;
         }
 
-        U.substract(scp.bF[posSet]);
-        C.solution.push_back(posSet);
+        // Erase element covered by the best candidate and add to the solution
+        U.substract(scp.bF[bestSet]);
+        C.solution.push_back(bestSet);
 
-        // for(int e : scp.F[posSet]) {
-        //     C.rowMap.erase(remove_if(C.rowMap.begin(), C.rowMap.end(), [e](const item& mp) {return mp.row == e;}), C.rowMap.end());
-        // }
+        // Delete the elements from the best candidate
+        C.updateRowMap(bestSet);
 
         if(CHECK) {
             cout << "Best Coverage: " << bestCoverage << endl;
-            cout << "Pos. Subset: " << posSet << endl;
+            cout << "Pos. Subset: " << bestSet << endl;
             cout << "|U|: " << U.size() << endl;
             // scp.printSubset(U);
         }
-        bestCoverage = numeric_limits<double>::max();;
+
         subsets.clear();
     }
 }

@@ -26,20 +26,20 @@ Set& Set::operator=(const Set &X) {
     return *this;
 }
 
-void Set::initialize(int nW) {
+void Set::initialize(const int nW) {
     this->nW = nW;
     S = new ulong[nW];
 } 
 
-void Set::push_back(int i) {
+void Set::push_back(const int i) {
     setBit64(S, i);
 }
 
-void Set::erase(int i) {
+void Set::erase(const int i) {
     cleanBit64(S, i);
 }
 
-bool Set::check(int i) {
+bool Set::check(const int i) const {
     return checkBit(S, i);
 }
 
@@ -47,24 +47,24 @@ void Set::clear() {
     for(int i=0; i<nW; i++) S[i] = 0;
 }
 
-int Set::intersectionLength(const Set B) {
+int Set::intersectionLength(const Set &B) {
     int cont = 0;
     for(int i=0; i<nW; i++) cont += __builtin_popcountl(S[i] & B.S[i]);
     return cont;
 }
 
-void Set::substract(const Set B) {
+void Set::substract(const Set &B) {
     for(int i=0; i<nW; i++) S[i] = S[i] & ~B.S[i];
 }
 
-int Set::size() {
+int Set::size() const {
     int rowsCovered = 0;
     for(int i=0; i<nW; i++)
         rowsCovered += __builtin_popcountl(S[i]);
     return rowsCovered;
 }
 
-void Set::print() {
+void Set::print() const {
     for (int i=0; i<nW; i++){
         printBitsUlong(S[i]);
         cout << " - ";

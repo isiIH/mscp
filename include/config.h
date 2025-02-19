@@ -5,6 +5,6 @@
 #define CHECK 0
 
 #define RCL 0.7
-#define MAX_ITER 100
+#define MAX_ITER 200
 
 #endif

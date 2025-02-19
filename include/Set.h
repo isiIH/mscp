@@ -20,15 +20,15 @@ public:
     ~Set();
     Set& operator=(const Set &X);
 
-    void initialize(int nW);
-    void push_back(int i);
-    void erase(int i);
-    bool check(int i);
+    void initialize(const int nW);
+    void push_back(const int i);
+    void erase(const int i);
+    bool check(const int i) const;
     void clear();
-    int intersectionLength(const Set B);
-    void substract(const Set B);
-    int size();
-    void print();
+    int intersectionLength(const Set &B);
+    void substract(const Set &B);
+    int size() const;
+    void print() const;
 };
 
 #endif

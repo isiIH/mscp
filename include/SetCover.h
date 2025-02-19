@@ -15,14 +15,16 @@ public:
     vector<int> solution;
     vector<RowCovering> rowMap;
     SCP scp;
+    vector<int> uniqueSets;
+    Set excludedSets;
 
     SetCover();
     SetCover(SCP &scp);
-    ~SetCover();
 
     void preprocess();
     void rowReduction();
     void columnDomination();
+    void updateRowMap(int setIndex);
     Set unionSets();
     bool isCovered();
     int size();

@@ -3,10 +3,9 @@
 SetCover::SetCover() {};
 
 SetCover::SetCover(SCP &scp) : scp(scp) {
+    excludedSets = Set(scp.nWF);
     preprocess();
 }
-
-SetCover::~SetCover() {}
 
 void SetCover::preprocess() {
     if(PRINT) {
@@ -20,7 +19,7 @@ void SetCover::preprocess() {
 
     // Create map structure
     for(int i=0; i<scp.n; i++)
-        rowMap.push_back(RowCovering(scp, i));
+        rowMap.push_back(RowCovering(excludedSets, scp.bF, i));
 
     sort(rowMap.begin(), rowMap.end(), [&](RowCovering a, RowCovering b){return a.n_columns < b.n_columns;});
 
@@ -42,37 +41,23 @@ void SetCover::preprocess() {
     // cout << "Original Groups: " << g.groups() << endl;
 
     if(PRINT) {
-        cout << "Added " << scp.uniqueSets.size() << " subsets" << endl; 
-        cout << "Excluded " << scp.excludedSets.size() << " subsets" << endl;
+        cout << "Added " << uniqueSets.size() << " subsets" << endl; 
+        cout << "Excluded " << excludedSets.size() << " subsets" << endl;
         cout << "|X| = " << scp.X.size() << endl;
     }
 }
 
 void SetCover::rowReduction() {
-    int setIndex, nRows, aux, aux2, p = 0;
+    int setIndex, p = 0;
 
     // Check if the sorted rowMap has unique elements
     while(rowMap[p].n_columns == 1) {
         setIndex = rowMap[p].col_covering[0];
 
-        for(int e : scp.F[setIndex]) {
-            // Update the covered elements
-            scp.X.erase(e-1);
-
-            // Remove all the subset's elements from the rowMap
-            nRows = rowMap.size();
-            aux = 0;
-            for(int i=0; i<nRows; i++) {
-                aux2 = i - aux;
-                if(scp.bF[setIndex].check(rowMap[aux2].row)) {
-                    rowMap.erase(rowMap.begin() + aux2);
-                    aux++;
-                }
-            }
-        }
+        updateRowMap(setIndex);
 
         // Add subset of grade 1
-        scp.uniqueSets.push_back(setIndex);
+        uniqueSets.push_back(setIndex);
         solution.push_back(setIndex);
 
         p++;
@@ -105,8 +90,27 @@ void SetCover::columnDomination() {
                 // cout << endl;
                 // cout << endl;
 
-                scp.excludedSets.push_back(indexedSubsets[i].first);
+                excludedSets.push_back(indexedSubsets[i].first);
                 break;
+            }
+        }
+    }
+}
+
+void SetCover::updateRowMap(int setIndex) {
+    int nRows, aux, aux2;
+    for(int e : scp.F[setIndex]) {
+        // Update the covered elements
+        // scp.X.erase(e-1);
+
+        // Remove all the subset's elements from the rowMap
+        nRows = rowMap.size();
+        aux = 0;
+        for(int i=0; i<nRows; i++) {
+            aux2 = i - aux;
+            if(scp.bF[setIndex].check(rowMap[aux2].row)) {
+                rowMap.erase(rowMap.begin() + aux2);
+                aux++;
             }
         }
     }

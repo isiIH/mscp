@@ -2,16 +2,16 @@
 
 SCP::SCP() {}
 
-SCP::SCP(string filename) {
+SCP::SCP(const string filename) {
     readFile(filename);
 }
 
-void SCP::readFile(string filename) {
+void SCP::readFile(const string filename) {
     if (filename.substr(0,3) == "scp") readFileScp(filename);
     else readFilePartition(filename);
 }
 
-void SCP::readFileScp(string filename) {
+void SCP::readFileScp(const string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename;
     ifstream file(nametxt.c_str());
@@ -57,7 +57,7 @@ void SCP::readFileScp(string filename) {
     file.close();
 }
 
-void SCP::readFilePartition(string filename) {
+void SCP::readFilePartition(const string filename) {
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename;
     ifstream file(nametxt.c_str());
@@ -95,8 +95,6 @@ void SCP::analyzeF() {
 
     nWF = m/(sizeof(ulong)*8); 
     if(m%(sizeof(ulong)*8) > 0) nWF++;
-
-    excludedSets = Set(nWF);
     
     X = Set(nWX);
 
