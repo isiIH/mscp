@@ -1,5 +1,6 @@
 *.pdf
 *.excalidraw
 grasp
+graspCPU
 test_partition/
 results/

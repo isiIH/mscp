@@ -96,6 +96,9 @@ int main(int argc, char** argv) {
     double end_time = omp_get_wtime();
     double dur_analyze = end_time - start_time;
 
+    cout << dur_analyze << endl;
+    return 0;
+
     if(PRINT) cout  << "X: " << par->n << " | F: " << par->m << endl;
 
     par->sizeF = par->m*sizeof(ulong)*par->n;
@@ -257,8 +260,7 @@ void analyzeF() {
 
     par->mp = vector<item>(par->n);
 
-    #pragma parallel for schedule(dynamic, 1)
-    for(int i=0; i<par->F.size(); i++){
+    for(int i=0; i<par->m; i++){
         ulong *bset = new ulong[par->nWX];
         fill(bset, bset + par->nWX, 0);
 
@@ -271,8 +273,8 @@ void analyzeF() {
         par->bF.push_back(bset);
     }
 
-    #pragma omp parallel for
-    for(int i=0; i<par->mp.size(); i++) {
+    #pragma omp parallel for shared(par)
+    for(int i=0; i<par->n; i++) {
         par->mp[i].value = i+1;
         par->mp[i].rep = par->mp[i].subSets.size();
     }
@@ -283,8 +285,6 @@ void analyzeF() {
         cout << "X = " << countSet(par->X) << endl;
         cout << "F = " << par->bF.size() << endl;
     }
-
-    preprocess();
 }
 
 void greedy() {
@@ -333,6 +333,8 @@ double jaccard(const ulong* A, const ulong* B) {
 }
 
 vector<int> graspSC() {
+    preprocess();
+
     vector<int> best_sol;
     int best_size = INT_MAX;
     par->improve = false;
