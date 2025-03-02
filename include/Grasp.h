@@ -6,6 +6,7 @@
 #include <set>
 #include <numeric>
 #include <cmath>
+#include <chrono>
 
 #include <config.h>
 #include <Set.h>
@@ -27,7 +28,7 @@ public:
     Grasp(SCP &scp);
 
     SetCover search();
-    void randSuccintSC(Set &U, SetCover &C);
+    void randSuccintSC(SetCover &C);
 };
 
 #endif

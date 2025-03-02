@@ -6,19 +6,14 @@ SetCover Grasp::search() {
     // Preprocess
     SetCover initialSol(scp);
 
-    int i;
-    Set U(scp.X);
     SetCover newSol, bestSol = initialSol;
     Set unionSC;
-    int col;
-    int nRemove;
+    int i, col, nRemove;
     vector<int> setsRemoved;
     improve = false;
 
     // Initial solution
-    randSuccintSC(U, bestSol);
-
-    improve = true;
+    randSuccintSC(bestSol);
 
     if(PRINT) cout << "Initial Sol. Cardinality: " << bestSol.size() << endl;
 
@@ -34,84 +29,70 @@ SetCover Grasp::search() {
         }
 
         if(CHECK) {
-            cout << "{ ";
+            cout << "SOLUTION = { ";
             for(int i=0; i<newSol.size(); i++) cout << "S" << newSol.solution[i] << " ";
             cout << "}" << endl;
+            cout << "DEL = { ";
         }
 
         for(int i=0; i<nRemove; i++) {
             col = rand()%(newSol.size()-newSol.uniqueSets.size()) + newSol.uniqueSets.size();
-            setsRemoved.push_back(newSol.solution[col]);
 
             if(CHECK) {
-                cout << newSol.solution[col] << endl;
+                cout << newSol.solution[col] << " ";
             }
-            
-            
-            newSol.solution.erase(newSol.solution.begin() + col);
+                
+            newSol.erase(col);
         }
+
+        if(CHECK) cout << "}" << endl;
 
         // Update RowMap & U
         unionSC = newSol.unionSets();
         for(RowCovering row : initialSol.rowMap)  {
             if(!unionSC.check(row.row)) {
                 newSol.rowMap.push_back(row);
-                U.push_back(row.row);
+                newSol.U.push_back(row.row);
             }
         }
-        setsRemoved.clear();
-
 
         // New solution
-        randSuccintSC(U, newSol);
+        randSuccintSC(newSol);
 
+        // Delete redundant subsets
+        i=newSol.uniqueSets.size();
+        while(i < newSol.size()){
+            if(newSol.isCovered(newSol.solution[i])) {
+                if(CHECK) cout << "Redundant subset erased: " << newSol.solution[i] << endl;
+                newSol.erase(i);
+            }
+            else i++;
+        }
 
-        // Eliminar subsets redundantes (que no agregan elementos nuevos)
-        // i=newSol.uniqueSets.size();
-        // while(i < newSol.size()){
-        //     SetCover sol = newSol;
-        //     sol.solution.erase(sol.solution.begin() + i);
-        //     if(sol.isCovered()) {
-        //         if(CHECK) cout << "Redundant subset erased: " << newSol.solution[i] << endl;
-        //         newSol.solution.erase(newSol.solution.begin() + i);
-        //     }
-        //     else i++;
-        // }
-
+        // Evaluate and Upgrade solution
         if(newSol.size() < bestSol.size()) {
             bestSol = newSol;
-            // improve = true;
-
-            //Penalizar columnas repetidas en la solución anterior
-            // for(int ss : new_sol)  {
-            //     if(find(sol.begin(), sol.end(), ss) != sol.end()) {
-            //         scp.n_columns_colums[ss]++;
-            //         scp.worst_columns[ss] = 1.1;
-            //         if(CHECK) cout << "subset " << ss << " repeated" << endl;
-            //     } else {
-            //         scp.worst_columns[ss] = 0.8;
-            //         scp.n_columns_colums[ss] = 0;
-            //     }
-            // }
-        }
-        // } else improve = false;
+            improve = true;
+        } else improve = false;
 
         if(PRINT) {
             cout << endl;
             cout << "Sol. Cardinality: " << newSol.size() << endl;
-            // printSubsets(new_sol);
             cout << "Best Cardinality: " << bestSol.size() << endl;
         }
     }
 
     return bestSol;
-    
 }
 
-void Grasp::randSuccintSC(Set &U, SetCover &C) {
-    // scp.function = rand() % 4;
+void Grasp::randSuccintSC(SetCover &C) {
+    if(CHECK) {
+        cout << "--------------------------------------------" << endl;
+    }
+    // function = rand() % 3;
     function = 0;
     set<int> subsets;
+    // vector<int> subsets;
     double coverage, bestCoverage;
     int grade, p, bestSet;
 
@@ -128,12 +109,13 @@ void Grasp::randSuccintSC(Set &U, SetCover &C) {
         }
     }
 
-    while( C.rowMap.size() > 0 ) { // Iterate until rowMap is empty
+    while( C.U.size() > 0 ) { // Iterate until U is empty
         p = 0;
         grade = C.rowMap[p].n_columns;
         bestCoverage = numeric_limits<double>::max();
         
-        // Collect all the elements'subsets of grade K
+        // Collect all the element's subsets of grade K
+        // subsets = C.rowMap[p].col_covering;
         while(p < C.rowMap.size() && C.rowMap[p].n_columns == grade) {
             for(int ss : C.rowMap[p].col_covering) subsets.insert(ss);
             p++;
@@ -147,7 +129,7 @@ void Grasp::randSuccintSC(Set &U, SetCover &C) {
 
         // Evaluate each subset with a coverage function
         for(int ss : subsets) {
-            coverage = U.intersectionLength(scp.bF[ss]);
+            coverage = C.U.intersectionLength(scp.bF[ss]);
             switch(function) {
                 case 0: coverage = 1/coverage; break;
                 case 1: coverage = 1/sqrt(coverage); break;
@@ -162,9 +144,10 @@ void Grasp::randSuccintSC(Set &U, SetCover &C) {
             }
             if(!improve) {
                 total += coverage;
-                subsets_coverage.push_back(make_pair(bestSet, total));
+                subsets_coverage.push_back(make_pair(ss, total));
             }
         }
+        
         if(!improve && rand() % 25 == 0) {
             if(CHECK) cout << "random set" << endl;
             rand_subset = ((double) rand()) / RAND_MAX;
@@ -179,17 +162,17 @@ void Grasp::randSuccintSC(Set &U, SetCover &C) {
         }
 
         // Erase element covered by the best candidate and add to the solution
-        U.substract(scp.bF[bestSet]);
-        C.solution.push_back(bestSet);
-
-        // Delete the elements from the best candidate
-        C.updateRowMap(bestSet);
+        C.push_back(bestSet);
 
         if(CHECK) {
             cout << "Best Coverage: " << bestCoverage << endl;
             cout << "Pos. Subset: " << bestSet << endl;
-            cout << "|U|: " << U.size() << endl;
-            // scp.printSubset(U);
+            cout << "|U|: " << C.U.size() << endl;
+            for(int e : scp.F[bestSet]) {
+                cout << e << " ";
+            }
+            cout << endl;
+            C.printRowMap();
         }
 
         subsets.clear();

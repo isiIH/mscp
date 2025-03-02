@@ -13,8 +13,10 @@ using namespace std;
 class SetCover {
 public:
     vector<int> solution;
+    Set U;
     vector<RowCovering> rowMap;
     SCP scp;
+
     vector<int> uniqueSets;
     Set excludedSets;
 
@@ -24,9 +26,11 @@ public:
     void preprocess();
     void rowReduction();
     void columnDomination();
-    void updateRowMap(int setIndex);
-    Set unionSets();
-    bool isCovered();
+    void updateRowMap(const int setIndex);
+    void push_back(const int s);
+    void erase(const int s);
+    Set unionSets(const int ignoreSet = -1);
+    bool isCovered(const int ignoreSet = -1);
     int size();
     void printRowMap();
 };

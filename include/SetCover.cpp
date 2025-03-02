@@ -4,6 +4,7 @@ SetCover::SetCover() {};
 
 SetCover::SetCover(SCP &scp) : scp(scp) {
     excludedSets = Set(scp.nWF);
+    U = Set(scp.X);
     preprocess();
 }
 
@@ -54,11 +55,9 @@ void SetCover::rowReduction() {
     while(rowMap[p].n_columns == 1) {
         setIndex = rowMap[p].col_covering[0];
 
-        updateRowMap(setIndex);
-
         // Add subset of grade 1
         uniqueSets.push_back(setIndex);
-        solution.push_back(setIndex);
+        push_back(setIndex);
 
         p++;
     }
@@ -66,64 +65,66 @@ void SetCover::rowReduction() {
 
 void SetCover::columnDomination() {
     // sort the subsets in ascending order
-    vector<pair<int, Set>> indexedSubsets;
+    vector<pair<int, int>> indexedSubsets;
     for(int i=0; i<scp.m; i++) {
-        indexedSubsets.push_back({i, scp.bF[i]});
+        indexedSubsets.push_back({i, scp.bF[i].size()});
     }
-    sort(indexedSubsets.begin(), indexedSubsets.end(), [](pair<int, Set> &a, pair<int, Set> &b){
-        return a.second.size() < b.second.size();
+    sort(indexedSubsets.begin(), indexedSubsets.end(), [](pair<int, int> &a, pair<int, int> &b){
+        return a.second < b.second;
     });
 
-    Set setA, setB;
+    pair<int, int> setA, setB;
     for(int i=0; i < scp.m-1; i++) {
         for(int j=i+1; j < scp.m; j++) {
-            setA = indexedSubsets[i].second;
-            setB = indexedSubsets[j].second;
+            setA = indexedSubsets[i];
+            setB = indexedSubsets[j];
 
             // If the intersection is the same size of the smallest subset 
-            if(setA.intersectionLength(setB) == setA.size()) {
-                // cout << "SetA: ";
-                // for(int e : scp.F[indexedSubsets[i].first]) cout << e << " ";
-                // cout << endl;
-                // cout << "SetB: ";
-                // for(int e : scp.F[indexedSubsets[j].first]) cout << e << " ";
-                // cout << endl;
-                // cout << endl;
-
-                excludedSets.push_back(indexedSubsets[i].first);
+            if(scp.bF[setA.first].intersectionLength(scp.bF[setB.first]) == setA.second) {
+                excludedSets.push_back(setA.first);
                 break;
             }
         }
     }
 }
 
-void SetCover::updateRowMap(int setIndex) {
-    int nRows, aux, aux2;
-    for(int e : scp.F[setIndex]) {
-        // Update the covered elements
-        // scp.X.erase(e-1);
-
-        // Remove all the subset's elements from the rowMap
-        nRows = rowMap.size();
-        aux = 0;
-        for(int i=0; i<nRows; i++) {
-            aux2 = i - aux;
-            if(scp.bF[setIndex].check(rowMap[aux2].row)) {
-                rowMap.erase(rowMap.begin() + aux2);
-                aux++;
-            }
+void SetCover::updateRowMap(const int setIndex) {
+    int nRows = rowMap.size();
+    int aux = 0, aux2;
+    // Remove all the subset's elements from the rowMap
+    for(int i=0; i<nRows; i++) {
+        aux2 = i - aux;
+        if(scp.bF[setIndex].check(rowMap[aux2].row)) {
+            rowMap.erase(rowMap.begin() + aux2);
+            aux++;
         }
     }
+
+    U.substract(scp.bF[setIndex]);
 }
 
-Set SetCover::unionSets() {
+void SetCover::push_back(const int s) {
+    solution.push_back(s);
+    updateRowMap(s);
+}
+
+void SetCover::erase(const int s) {
+    solution.erase(solution.begin() + s);
+}
+
+Set SetCover::unionSets(const int ignoreSet) {
     Set C(scp.nWX);
-    for(const int idS : solution) for(int i=0; i<scp.nWX; i++) C.S[i] |= scp.bF[idS].S[i];
+    for(const int idS : solution) {
+        if(idS != ignoreSet) {
+            for(int i=0; i<scp.nWX; i++)
+                C.S[i] |= scp.bF[idS].S[i];
+        }
+    }
     return C;
 }
 
-bool SetCover::isCovered() {
-    Set coveredElements = unionSets();
+bool SetCover::isCovered(const int ignoreSet) {
+    Set coveredElements = unionSets(ignoreSet);
     
     for (int i = 0; i < scp.nWX; i++) if ((coveredElements.S[i] & scp.X.S[i]) != scp.X.S[i]) {
         return false;

@@ -93,9 +93,10 @@ int main(int argc, char** argv) {
         cout << "Time [s]: " << dur_apr/1000000.0 << endl;
     }
 
+    assert(alg.scp.X.size() == scp.n);
     assert(alg.bestSol.isCovered());
 
-    cout << argv[1] << " " << scp.n << " " << scp.m << " " << dur_greedyExh/1000000.0 << " " << greedySol.size() << " " << dur_apr/1000000.0 << " " << alg.bestSol.size() << " " << endl;
+    cout << argv[1] << " " << scp.n << " " << scp.m << " " << alg.bestSol.uniqueSets.size() << " " << alg.bestSol.excludedSets.size() << " " << dur_greedyExh/1000000.0 << " " << greedySol.size() << " " << dur_apr/1000000.0 << " " << alg.bestSol.size() << " " << endl;
 
     return 0;
 }
