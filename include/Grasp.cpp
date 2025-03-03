@@ -6,10 +6,7 @@ SetCover Grasp::search() {
     // Preprocess
     SetCover initialSol(scp);
 
-    SetCover newSol, bestSol = initialSol;
-    Set unionSC;
-    int i, col, nRemove;
-    vector<int> setsRemoved;
+    bestSol = initialSol;
     improve = false;
 
     // Initial solution
@@ -18,71 +15,83 @@ SetCover Grasp::search() {
     if(PRINT) cout << "Initial Sol. Cardinality: " << bestSol.size() << endl;
 
     for(int iter=0; iter< MAX_ITER; iter++){
-        // Perturbation
-        newSol = bestSol;
-        nRemove = rand() % (int)ceil((newSol.size()-newSol.uniqueSets.size()) * RCL) + 1;
-
         if(PRINT) {
             cout << "--------------------------------------------" << endl;
             cout << "IT: " << (iter+1) << endl;
-            cout << nRemove << " subsets deleted" << endl;
         }
+        updateSolution(bestSol, initialSol.rowMap);
+    }
+
+    // Add unique sets (grade 1) to the solution
+    for(int ss : bestSol.uniqueSets)
+        bestSol.push_back(ss);
+
+    return bestSol;
+}
+
+void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap) {
+    // Perturbation
+    int i, col;
+    Set unionSC;
+    SetCover newSol = solution;
+    int nRemove = rand() % (int)ceil((newSol.size()) * RCL) + 1;
+
+    if(PRINT) {
+        cout << nRemove << " subsets deleted" << endl;
+    }
+
+    if(CHECK) {
+        cout << "SOLUTION = { ";
+        for(i=0; i<newSol.size(); i++) cout << "S" << newSol.solution[i] << " ";
+        cout << "}" << endl;
+        cout << "DEL = { ";
+    }
+
+    for(i=0; i<nRemove; i++) {
+        col = rand()%newSol.size();
 
         if(CHECK) {
-            cout << "SOLUTION = { ";
-            for(int i=0; i<newSol.size(); i++) cout << "S" << newSol.solution[i] << " ";
-            cout << "}" << endl;
-            cout << "DEL = { ";
+            cout << newSol.solution[col] << " ";
         }
+            
+        newSol.erase(col);
+    }
 
-        for(int i=0; i<nRemove; i++) {
-            col = rand()%(newSol.size()-newSol.uniqueSets.size()) + newSol.uniqueSets.size();
+    if(CHECK) cout << "}" << endl;
 
-            if(CHECK) {
-                cout << newSol.solution[col] << " ";
-            }
-                
-            newSol.erase(col);
-        }
-
-        if(CHECK) cout << "}" << endl;
-
-        // Update RowMap & U
-        unionSC = newSol.unionSets();
-        for(RowCovering row : initialSol.rowMap)  {
-            if(!unionSC.check(row.row)) {
-                newSol.rowMap.push_back(row);
-                newSol.U.push_back(row.row);
-            }
-        }
-
-        // New solution
-        randSuccintSC(newSol);
-
-        // Delete redundant subsets
-        i=newSol.uniqueSets.size();
-        while(i < newSol.size()){
-            if(newSol.isCovered(newSol.solution[i])) {
-                if(CHECK) cout << "Redundant subset erased: " << newSol.solution[i] << endl;
-                newSol.erase(i);
-            }
-            else i++;
-        }
-
-        // Evaluate and Upgrade solution
-        if(newSol.size() < bestSol.size()) {
-            bestSol = newSol;
-            improve = true;
-        } else improve = false;
-
-        if(PRINT) {
-            cout << endl;
-            cout << "Sol. Cardinality: " << newSol.size() << endl;
-            cout << "Best Cardinality: " << bestSol.size() << endl;
+    // Update RowMap & U
+    unionSC = newSol.unionSets();
+    for(RowCovering row : rowMap)  {
+        if(!unionSC.check(row.row)) {
+            newSol.rowMap.push_back(row);
+            newSol.U.push_back(row.row);
         }
     }
 
-    return bestSol;
+    // New solution
+    randSuccintSC(newSol);
+
+    // Delete redundant subsets
+    i=newSol.uniqueSets.size();
+    while(i < newSol.size()){
+        if(newSol.isCovered(scp.X, newSol.solution[i])) {
+            if(CHECK) cout << "Redundant subset erased: " << newSol.solution[i] << endl;
+            newSol.erase(i);
+        }
+        else i++;
+    }
+
+    // Evaluate and Upgrade solution
+    if(newSol.size() < solution.size()) {
+        solution = newSol;
+        improve = true;
+    } else improve = false;
+
+    if(PRINT) {
+        cout << endl;
+        cout << "Sol. Cardinality: " << newSol.size() << endl;
+        cout << "Best Cardinality: " << solution.size() << endl;
+    }
 }
 
 void Grasp::randSuccintSC(SetCover &C) {

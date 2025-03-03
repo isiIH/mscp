@@ -5,7 +5,7 @@ INCLUDES = -I./include/
 SRC_DIR = ./include
 
 SRC_MAIN = $(SRC_DIR)/BasicCDS.cpp $(SRC_DIR)/Set.cpp $(SRC_DIR)/SCP.cpp \
-      $(SRC_DIR)/Grasp.cpp $(SRC_DIR)/SetCover.cpp $(SRC_DIR)/RowCovering.cpp \
+      $(SRC_DIR)/Grasp.cpp $(SRC_DIR)/SetCover.cpp $(SRC_DIR)/RowCovering.cpp $(SRC_DIR)/Group.cpp \
       ./main.cpp
 
 GRASPCPU=$(SRC_DIR)/BasicCDS.cpp ./graspSC_CPU.cpp

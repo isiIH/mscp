@@ -6,25 +6,25 @@
 #include <map>
 
 #include <BasicCDS.h>
+#include <Set.h>
 
 using namespace std;
 using namespace cds;
 
 class Group {
-    vector<ulong*> list_groups;
-    ulong* visited;
+    vector<Set> list_groups;
+    Set visited;
     int m, nWF;
 
 public:
     map<int, vector<int>> graph; //Store adjacent nodes
 
-    Group(int m);
-    Group(int m, int node);
-    ~Group();
+    Group();
+    Group(const int m);
 
-    void add_edge(int u, int v);
-    void create_groups();
-    void dfs(int node, ulong* group);
+    void add_edge(const int u, const int v);
+    void create_groups(const Set& excluded);
+    void dfs(const int node, Set& group);
     int groups();
     void print();
     void printGraph();

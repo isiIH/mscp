@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
     }
 
     assert(alg.scp.X.size() == scp.n);
-    assert(alg.bestSol.isCovered());
+    assert(alg.bestSol.isCovered(scp.X));
 
     cout << argv[1] << " " << scp.n << " " << scp.m << " " << alg.bestSol.uniqueSets.size() << " " << alg.bestSol.excludedSets.size() << " " << dur_greedyExh/1000000.0 << " " << greedySol.size() << " " << dur_apr/1000000.0 << " " << alg.bestSol.size() << " " << endl;
 

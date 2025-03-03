@@ -1,26 +1,14 @@
 #include <Group.h>
 
-Group::Group(int m) {
+Group::Group() {}
+
+Group::Group(const int m) {
     this->m = m;
     nWF = m/(sizeof(ulong)*8); 
     if(m%(sizeof(ulong)*8) > 0) nWF++;
-
-    visited = new ulong[nWF];
-    for(int i=0; i<nWF; i++) visited[i] = 0;
 }
 
-Group::Group(int m, int node) : Group(m) {
-    setBit64(visited, node);
-}
-
-Group::~Group() {
-    for (auto group : list_groups) {
-        delete[] group;
-    }
-    delete[] visited;
-}
-
-void Group::add_edge(int u, int v) {
+void Group::add_edge(const int u, const int v) {
     // Set both subset edges (undirected graph)
     graph[u].push_back(v);
     graph[v].push_back(u);
@@ -40,32 +28,29 @@ void Group::printGraph() {
     }
 }
 
-void Group::create_groups() {
+void Group::create_groups(const Set& excluded) {
+    // copy the excluded sets to ignore the edges
+    visited = Set(excluded);
+
     for(int u=0; u<m; u++) {
-        if(!checkBit(visited, u)) { // If node has not been visited yet create a new group
-            ulong *group = new ulong[nWF];
-            for(int i=0; i<nWF; i++) group[i] = 0;
+        if(!visited.check(u)) { // If node has not been visited yet create a new group
+            Set group(nWF);
             dfs(u, group); // Deph-First Search
             list_groups.push_back(group);
         }
     }
 }
 
-void Group::dfs(int node, ulong* group) {
+void Group::dfs(const int node, Set& group) {
     // Set node as visited and add to the created group
-    setBit64(visited, node); 
-    setBit64(group, node);
+    visited.push_back(node);
+    group.push_back(node);
 
     // Check the adjacent nodes
     for(int v : graph[node]) {
-        if(!checkBit(visited, v))
+        if(!visited.check(v))
             dfs(v, group);
     }
-
-    // for(int v=(node+1); v<m; v++) {
-    //     if(!checkBit(visited, v) && graph.check_edge(node, v))
-    //         dfs(v, group);
-    // }
 }
 
 void Group::print() {
@@ -74,12 +59,10 @@ void Group::print() {
     cout << "------" << endl;
     
     int g_idx = 0;
-    for(ulong* group : list_groups) {
+    for(const Set& group : list_groups) {
         g_idx++;
         cout << "Group " << g_idx << ": ";
-        for(int i=0; i<nWF; i++) {
-            printBitsUlong(group[i]);
-        }
+        group.print();
         cout << endl;
     }
 }

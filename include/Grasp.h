@@ -28,6 +28,7 @@ public:
     Grasp(SCP &scp);
 
     SetCover search();
+    void updateSolution(SetCover& solution, const vector<RowCovering>& rowMap);
     void randSuccintSC(SetCover &C);
 };
 
