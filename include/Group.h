@@ -12,11 +12,11 @@ using namespace std;
 using namespace cds;
 
 class Group {
-    vector<Set> list_groups;
     Set visited;
     int m, nWF;
-
+    
 public:
+    vector<vector<int>> list_groups;
     map<int, vector<int>> graph; //Store adjacent nodes
 
     Group();
@@ -24,7 +24,7 @@ public:
 
     void add_edge(const int u, const int v);
     void create_groups(const Set& excluded);
-    void dfs(const int node, Set& group);
+    void dfs(const int node, vector<int>& group);
     int groups();
     void print();
     void printGraph();

@@ -4,8 +4,6 @@ Group::Group() {}
 
 Group::Group(const int m) {
     this->m = m;
-    nWF = m/(sizeof(ulong)*8); 
-    if(m%(sizeof(ulong)*8) > 0) nWF++;
 }
 
 void Group::add_edge(const int u, const int v) {
@@ -34,14 +32,14 @@ void Group::create_groups(const Set& excluded) {
 
     for(int u=0; u<m; u++) {
         if(!visited.check(u)) { // If node has not been visited yet create a new group
-            Set group(nWF);
+            vector<int> group;
             dfs(u, group); // Deph-First Search
             list_groups.push_back(group);
         }
     }
 }
 
-void Group::dfs(const int node, Set& group) {
+void Group::dfs(const int node, vector<int>& group) {
     // Set node as visited and add to the created group
     visited.push_back(node);
     group.push_back(node);
@@ -59,10 +57,12 @@ void Group::print() {
     cout << "------" << endl;
     
     int g_idx = 0;
-    for(const Set& group : list_groups) {
+    for(const vector<int>& group : list_groups) {
         g_idx++;
         cout << "Group " << g_idx << ": ";
-        group.print();
+        for(int ss : group) {
+            cout << ss << " ";
+        }
         cout << endl;
     }
 }

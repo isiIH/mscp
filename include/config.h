@@ -1,7 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define PRINT 1
+#define PRINT 0
 #define CHECK 0
 
 #define RCL 0.7

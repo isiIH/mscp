@@ -44,20 +44,19 @@ void SetCover::preprocess() {
 }
 
 void SetCover::rowReduction() {
-    int setIndex, p = 0;
+    int setIndex;
 
     // Check if the sorted rowMap has unique elements
-    while(rowMap[p].n_columns == 1) {
-        setIndex = rowMap[p].col_covering[0];
+    while(rowMap[0].n_columns == 1) {
+        setIndex = rowMap[0].col_covering[0];
 
         // Add subset of grade 1
         uniqueSets.push_back(setIndex);
         // push_back(setIndex);
         updateRowMap(setIndex);
+        U.substract(scp.bF[setIndex]);
 
         excludedSets.push_back(setIndex);
-
-        p++;
     }
 }
 
@@ -106,12 +105,13 @@ void SetCover::updateRowMap(const int setIndex) {
         }
     }
 
-    U.substract(scp.bF[setIndex]);
+    // U.substract(scp.bF[setIndex]);
 }
 
 void SetCover::push_back(const int s) {
     solution.push_back(s);
     updateRowMap(s);
+    U.substract(scp.bF[s]);
 }
 
 void SetCover::erase(const int s) {

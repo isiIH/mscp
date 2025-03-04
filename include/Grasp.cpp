@@ -5,28 +5,68 @@ Grasp::Grasp(SCP &scp): scp(scp) {}
 SetCover Grasp::search() {
     // Preprocess
     SetCover initialSol(scp);
-
-    bestSol = initialSol;
+    SetCover solution = initialSol;
     improve = false;
+    
+    int i;
+    
+    for(vector<int> group : initialSol.g.list_groups) {
+        auto start_time = chrono::high_resolution_clock::now();
 
-    // Initial solution
-    randSuccintSC(bestSol);
-
-    if(PRINT) cout << "Initial Sol. Cardinality: " << bestSol.size() << endl;
-
-    for(int iter=0; iter< MAX_ITER; iter++){
-        if(PRINT) {
-            cout << "--------------------------------------------" << endl;
-            cout << "IT: " << (iter+1) << endl;
+        SetCover groupSol = initialSol;
+        groupSol.U.clear();
+        for(int ss : group) {
+            // cout << ss << " ";
+            // scp.bF[ss].print();
+            groupSol.U.add(scp.bF[ss]);
+            // groupSol.U.print();
         }
-        updateSolution(bestSol, initialSol.rowMap);
+        for(i=0; i<scp.nWX; i++) groupSol.U.S[i] &= initialSol.U.S[i];
+        // cout << endl;
+        // groupSol.U.print();
+        i=0;
+        while(i < groupSol.rowMap.size()) {
+            if(!groupSol.U.check(groupSol.rowMap[i].row)) {
+                // cout << groupSol.rowMap[i].row << " ";
+                groupSol.rowMap.erase(groupSol.rowMap.begin() + i);
+            }
+            else {
+                i++;
+            }
+        }
+        // cout << endl;
+
+        // cout << groupSol.U.size() << endl;
+        // cout << groupSol.rowMap.size() << endl;
+
+        SetCover sol = groupSol;
+
+        // Initial solution
+        randSuccintSC(sol);
+
+        if(PRINT) cout << "Initial Sol. Cardinality: " << sol.size() << endl;
+
+        for(int iter=0; iter< MAX_ITER; iter++){
+            if(PRINT) {
+                cout << "--------------------------------------------" << endl;
+                cout << "IT: " << (iter+1) << endl;
+            }
+            updateSolution(sol, groupSol.rowMap);
+        }
+
+        cout << "Group sol " << sol.solution.size() << endl;
+
+        solution.solution.insert(solution.solution.end(), sol.solution.begin(), sol.solution.end());
+
+        auto end_time = chrono::high_resolution_clock::now();
+
+        cout << "Time: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0 << endl;
     }
 
     // Add unique sets (grade 1) to the solution
-    for(int ss : bestSol.uniqueSets)
-        bestSol.push_back(ss);
+    solution.solution.insert(solution.solution.end(), solution.uniqueSets.begin(), solution.uniqueSets.end());
 
-    return bestSol;
+    return solution;
 }
 
 void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap) {

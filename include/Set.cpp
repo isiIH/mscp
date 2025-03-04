@@ -53,6 +53,10 @@ int Set::intersectionLength(const Set &B) {
     return cont;
 }
 
+void Set::add(const Set& B) {
+    for(int i=0; i<nW; i++) S[i] |= B.S[i];
+}
+
 void Set::substract(const Set &B) {
     for(int i=0; i<nW; i++) S[i] = S[i] & ~B.S[i];
 }
