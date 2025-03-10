@@ -4,6 +4,7 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
     universe = list(range(1, n + 1))
     subsets = [[] for _ in range(m)]
 
+    #divide universe in groups
     group_size = n // num_groups
     groups = [universe[i * group_size: (i + 1) * group_size] for i in range(num_groups)]
 
@@ -12,14 +13,13 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
         n_subsets = random.randint(1, min(left_subsets,  m // num_groups))
         if(i == len(groups) - 1):
             n_subsets = left_subsets
-        print(n_subsets)
 
-        # Añade cada elemento dentro de un subconjunto random
+        # Add every element inside a random subset
         for e in group:
             rand_subset = random.randint(m - left_subsets, (m - left_subsets) + n_subsets - 1)
             subsets[rand_subset].append(e)
 
-        # Agrega más elementos randoms a cada subconjunto
+        # Add more elements to random subsets
         for j,subset in enumerate(subsets[m - left_subsets:(m - left_subsets) + n_subsets]):
             subset_size = random.randint(1, len(group) // 4)
             subset_size -= len(subset)
@@ -34,4 +34,7 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
         for subset in subsets:
             file.write("1 1 " + " ".join(map(str, subset)) + "\n")
 
-generate_set_cover_file("test/ex3.txt")
+    print(f"Dataset guardado en {filename}")
+
+generate_set_cover_file("test/ex6.txt", n=5000, m=10000, num_groups=4)
+generate_set_cover_file("test/ex7.txt", n=5000, m=10000, num_groups=4)

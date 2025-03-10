@@ -14,6 +14,7 @@ public:
     vector<int> col_covering; // Columns that cover row i
     int n_columns; // size of col_covering
 
+    RowCovering();
     RowCovering(const Set &ignSets, const vector<Set> &bF, const int row);
 
     void createRowCovering(const Set &ignSets, const vector<Set> &bF);

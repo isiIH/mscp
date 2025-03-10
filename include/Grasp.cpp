@@ -4,63 +4,21 @@ Grasp::Grasp(SCP &scp): scp(scp) {}
 
 SetCover Grasp::search() {
     // Preprocess
-    SetCover initialSol(scp);
-    SetCover solution = initialSol;
-    improve = false;
+    SetCover solution(scp);
     
-    int i;
-    
-    for(vector<int> group : initialSol.g.list_groups) {
-        auto start_time = chrono::high_resolution_clock::now();
-
-        SetCover groupSol = initialSol;
-        groupSol.U.clear();
-        for(int ss : group) {
-            // cout << ss << " ";
-            // scp.bF[ss].print();
-            groupSol.U.add(scp.bF[ss]);
-            // groupSol.U.print();
-        }
-        for(i=0; i<scp.nWX; i++) groupSol.U.S[i] &= initialSol.U.S[i];
-        // cout << endl;
-        // groupSol.U.print();
-        i=0;
-        while(i < groupSol.rowMap.size()) {
-            if(!groupSol.U.check(groupSol.rowMap[i].row)) {
-                // cout << groupSol.rowMap[i].row << " ";
-                groupSol.rowMap.erase(groupSol.rowMap.begin() + i);
-            }
-            else {
-                i++;
-            }
-        }
-        // cout << endl;
-
-        // cout << groupSol.U.size() << endl;
-        // cout << groupSol.rowMap.size() << endl;
-
-        SetCover sol = groupSol;
-
+    if(GROUP_SEG) searchPerGroup(solution);
+    else {
         // Initial solution
-        randSuccintSC(sol);
+        SetCover newSol = solution;
+        randSuccintSC(newSol, false);
 
-        if(PRINT) cout << "Initial Sol. Cardinality: " << sol.size() << endl;
+        if(PRINT) printf("Initial Sol. Cardinality: %d\n", newSol.size());
 
-        for(int iter=0; iter< MAX_ITER; iter++){
-            if(PRINT) {
-                cout << "--------------------------------------------" << endl;
-                cout << "IT: " << (iter+1) << endl;
-            }
-            updateSolution(sol, groupSol.rowMap);
-        }
+        bool improve = true;
+        for(int iter=0; iter< MAX_ITER; iter++)
+            updateSolution(newSol, solution.rowMap, improve);
 
-        cout << "Group sol " << sol.solution.size() << endl;
-
-        solution.solution.insert(solution.solution.end(), sol.solution.begin(), sol.solution.end());
-
-        auto end_time = chrono::high_resolution_clock::now();
-
-        cout << "Time: " << chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0 << endl;
+        solution = newSol;
     }
 
     // Add unique sets (grade 1) to the solution
@@ -69,35 +27,93 @@ SetCover Grasp::search() {
     return solution;
 }
 
-void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap) {
+void Grasp::searchPerGroup(SetCover& solution) {
+    int numGroups = solution.g.sizeGroups();
+    vector<vector<int>> groupSolutions(numGroups);
+    
+    #pragma omp parallel for default(none) shared(groupSolutions, solution, numGroups)
+    for(int ng=0; ng < numGroups; ng++) {
+        auto start_time = chrono::high_resolution_clock::now();
+
+        // Define U as the union of the subsets
+        SetCover groupSol = solution;
+        vector<int> group = solution.g.groups[ng];
+        groupSol.U.clear();
+        for(int ss : group) {
+            if(CHECK) printf("%d ", ss);
+            groupSol.U.add(scp.bF[ss]);
+        }
+        if(CHECK) printf("\n");
+        // if unique sets were found, intersect with the original U
+        for(int i=0; i<scp.nWX; i++) groupSol.U.S[i] &= solution.U.S[i];
+
+        // upgrade rowMap
+        int i=0;
+        while(i < groupSol.rowMap.size()) {
+            if(!groupSol.U.check(groupSol.rowMap[i].row)) {
+                groupSol.rowMap.erase(groupSol.rowMap.begin() + i);
+            }
+            else i++;
+        }
+
+        if(CHECK) {
+            printf("|U| = %d\n", groupSol.U.size());
+            printf("|rowMap| = %ld\n", groupSol.rowMap.size());
+        }
+
+        // Initial solution
+        SetCover sol = groupSol;
+        randSuccintSC(sol, false);
+
+        if(PRINT) printf("Initial Sol. Cardinality: %d\n", sol.size());
+
+        bool improve = true;
+        for(int iter=0; iter< MAX_ITER; iter++){
+            if(PRINT) {
+                printf("--------------------------------------------\n");
+                printf("Group %d IT: %d\n", (ng + 1), (iter + 1));
+            }
+            updateSolution(sol, groupSol.rowMap, improve);
+        }
+
+        printf("Group %d size: %ld\n", (ng + 1), sol.solution.size());
+
+        groupSolutions[ng] = sol.solution;
+
+        auto end_time = chrono::high_resolution_clock::now();
+
+        printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    }
+
+    // copy every group sol to the original solution
+    for(vector<int> groupSol : groupSolutions)
+        solution.solution.insert(solution.solution.end(), groupSol.begin(), groupSol.end());
+}
+
+void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool& improve) {
     // Perturbation
     int i, col;
     Set unionSC;
     SetCover newSol = solution;
     int nRemove = rand() % (int)ceil((newSol.size()) * RCL) + 1;
 
-    if(PRINT) {
-        cout << nRemove << " subsets deleted" << endl;
-    }
+    if(PRINT) printf("%d subsets deleted\n", nRemove);
 
     if(CHECK) {
-        cout << "SOLUTION = { ";
-        for(i=0; i<newSol.size(); i++) cout << "S" << newSol.solution[i] << " ";
-        cout << "}" << endl;
-        cout << "DEL = { ";
+        printf("Solution = { ");
+        for(i=0; i<newSol.size(); i++) printf("S%d ", newSol.solution[i]);
+        printf("}\nDeleted = { ");
     }
 
     for(i=0; i<nRemove; i++) {
         col = rand()%newSol.size();
 
-        if(CHECK) {
-            cout << newSol.solution[col] << " ";
-        }
+        if(CHECK) printf("%d ", newSol.solution[col]);
             
         newSol.erase(col);
     }
 
-    if(CHECK) cout << "}" << endl;
+    if(CHECK) printf("}\n");
 
     // Update RowMap & U
     unionSC = newSol.unionSets();
@@ -109,13 +125,13 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     }
 
     // New solution
-    randSuccintSC(newSol);
+    randSuccintSC(newSol, improve);
 
     // Delete redundant subsets
     i=newSol.uniqueSets.size();
     while(i < newSol.size()){
         if(newSol.isCovered(scp.X, newSol.solution[i])) {
-            if(CHECK) cout << "Redundant subset erased: " << newSol.solution[i] << endl;
+            if(CHECK) printf("Redundant subset erased: %d\n", newSol.solution[i]);
             newSol.erase(i);
         }
         else i++;
@@ -128,18 +144,14 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     } else improve = false;
 
     if(PRINT) {
-        cout << endl;
-        cout << "Sol. Cardinality: " << newSol.size() << endl;
-        cout << "Best Cardinality: " << solution.size() << endl;
+        printf("\nSol.Cardinality: %d\nBest Cardinality: %d\n", newSol.size(), solution.size());
     }
 }
 
-void Grasp::randSuccintSC(SetCover &C) {
-    if(CHECK) {
-        cout << "--------------------------------------------" << endl;
-    }
-    // function = rand() % 3;
-    function = 0;
+void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
+    if(CHECK) printf("------------------------------------\n");
+    // int function = rand() % 3;
+    int function = 0;
     set<int> subsets;
     // vector<int> subsets;
     double coverage, bestCoverage;
@@ -150,10 +162,10 @@ void Grasp::randSuccintSC(SetCover &C) {
 
     if(PRINT) {
         switch(function) {
-            case 0: cout << "Using function (1/rowsCovered)" << endl; break;
-            case 1: cout << "Using function (1/sqrt(rowsCovered))" << endl; break;
-            case 2: cout << "Using function (1/log(1 + rowsCovered))" << endl; break;
-            case 3: cout << "Using function (1/rowsCovered²)" << endl; break;
+            case 0: printf("Using function (1/rowsCovered)\n"); break;
+            case 1: printf("Using function (1/sqrt(rowsCovered))\n");; break;
+            case 2: printf("Using function (1/log(1 + rowsCovered))\n"); break;
+            case 3: printf("Using function (1/rowsCovered²)\n"); break;
             default: break;
         }
     }
@@ -171,9 +183,9 @@ void Grasp::randSuccintSC(SetCover &C) {
         }
 
         if(CHECK) {
-            cout << "grade: " << grade << endl;
-            for(int ss : subsets) cout << ss << " ";
-            cout << endl;
+            printf("grade: %d\n", grade);
+            for(int ss : subsets) printf("%d ", ss);
+            printf("\n");
         }
 
         // Evaluate each subset with a coverage function
@@ -198,7 +210,7 @@ void Grasp::randSuccintSC(SetCover &C) {
         }
         
         if(!improve && rand() % 25 == 0) {
-            if(CHECK) cout << "random set" << endl;
+            if(CHECK) printf("random set");;
             rand_subset = ((double) rand()) / RAND_MAX;
             for(int i=0; i<subsets_coverage.size(); i++) {
                 if(rand_subset <= subsets_coverage[i].second / total) {
@@ -214,14 +226,12 @@ void Grasp::randSuccintSC(SetCover &C) {
         C.push_back(bestSet);
 
         if(CHECK) {
-            cout << "Best Coverage: " << bestCoverage << endl;
-            cout << "Pos. Subset: " << bestSet << endl;
-            cout << "|U|: " << C.U.size() << endl;
-            for(int e : scp.F[bestSet]) {
-                cout << e << " ";
-            }
-            cout << endl;
-            C.printRowMap();
+            printf("Best Coverage: %f\n", bestCoverage);
+            printf("Pos. Subset: %d\n", bestSet);
+            printf("|U|: %d\n", C.U.size());
+            for(int e : scp.F[bestSet]) 
+                printf("%d ", e);
+            printf("\n");
         }
 
         subsets.clear();

@@ -3,11 +3,13 @@
 
 #include <iostream>
 #include <algorithm>
+#include <execution>
 
 #include <config.h>
 #include <RowCovering.h>
 #include <SCP.h>
 #include <Group.h>
+#include <UnionFind.h>
 
 using namespace std;
 
@@ -17,7 +19,8 @@ public:
     Set U;
     vector<RowCovering> rowMap;
     SCP scp;
-    Group g;
+    // Group g;
+    UnionFind g;
 
     vector<int> uniqueSets;
     Set excludedSets;

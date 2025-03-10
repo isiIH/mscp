@@ -7,4 +7,6 @@
 #define RCL 0.7
 #define MAX_ITER 200
 
+#define GROUP_SEG 1
+
 #endif

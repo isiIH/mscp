@@ -1,6 +1,7 @@
 #include <chrono>
 #include <cassert>
 #include <map>
+#include <omp.h>
 
 using namespace std;
 
@@ -14,11 +15,13 @@ vector<int> greedy(const SCP &scp);
 
 int main(int argc, char** argv) {
     if(argc !=3){
-		cout << "./opt <filename> <seed>" << endl;
+		cout << "./opt <filename> <nt>" << endl;
 		exit(EXIT_FAILURE);
 	}
 
-    // srand(atoi(argv[2]));
+    omp_set_num_threads(atoi(argv[2]));
+
+    // Randomize the result
     srand(time(0));
 
     // Read file
@@ -56,7 +59,7 @@ int main(int argc, char** argv) {
 
     // GREEDY-ALG
     start_time = chrono::high_resolution_clock::now();
-    vector<int> greedySol = vector<int>(0); // greedy(scp);
+    vector<int> greedySol = greedy(scp);
     end_time = chrono::high_resolution_clock::now();
     auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     dur_greedyExh += dur_analyze;

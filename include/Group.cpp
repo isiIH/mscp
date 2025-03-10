@@ -27,6 +27,7 @@ void Group::printGraph() {
 }
 
 void Group::create_groups(const Set& excluded) {
+    if(PRINT) printf("Creating groups... ");
     // copy the excluded sets to ignore the edges
     visited = Set(excluded);
 
@@ -37,6 +38,9 @@ void Group::create_groups(const Set& excluded) {
             list_groups.push_back(group);
         }
     }
+
+    if(PRINT) printf("%ld groups found\n", list_groups.size());
+    if(CHECK) print();
 }
 
 void Group::dfs(const int node, vector<int>& group) {

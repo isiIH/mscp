@@ -7,6 +7,7 @@
 #include <numeric>
 #include <cmath>
 #include <chrono>
+#include <omp.h>
 
 #include <config.h>
 #include <Set.h>
@@ -18,18 +19,14 @@ using namespace std;
 class Grasp {
 public:
     SCP scp;
-
-    int function;
-    bool improve;
-    int last_visited;
-
     SetCover bestSol;
 
     Grasp(SCP &scp);
 
     SetCover search();
-    void updateSolution(SetCover& solution, const vector<RowCovering>& rowMap);
-    void randSuccintSC(SetCover &C);
+    void searchPerGroup(SetCover& solution);
+    void updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool &improve);
+    void randSuccintSC(SetCover &C, const bool& improve);
 };
 
 #endif

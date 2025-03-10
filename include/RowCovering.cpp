@@ -1,5 +1,7 @@
 #include <RowCovering.h>
 
+RowCovering::RowCovering() {}
+
 RowCovering::RowCovering(const Set &ignSets, const vector<Set> &bF, const int row) : row(row), n_columns(0) {
     createRowCovering(ignSets, bF);
 }
