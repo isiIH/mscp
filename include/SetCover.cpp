@@ -19,25 +19,39 @@ void SetCover::preprocess() {
     }
 
     // Column Domination
+    auto start_time = chrono::high_resolution_clock::now();
     columnDomination();
+    auto end_time = chrono::high_resolution_clock::now();
+    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     // Create map structure
+    start_time = chrono::high_resolution_clock::now();
     if(PRINT) printf("Creating Row Map...\n");
-    #pragma omp parallel for
+    #pragma omp parallel for schedule(dynamic, 1)
     for(int i=0; i<scp.n; i++)
         rowMap[i] = RowCovering(excludedSets, scp.bF, i);
 
     sort(execution::par, rowMap.begin(), rowMap.end(), [&](RowCovering a, RowCovering b){return a.n_columns < b.n_columns;});
-        
+    end_time = chrono::high_resolution_clock::now();
+    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+
     printRowMap();
     // Add uniques elements
+    start_time = chrono::high_resolution_clock::now();
     rowReduction();
+    end_time = chrono::high_resolution_clock::now();
+    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+
 
     printRowMap();
 
     // Universe Segmentation
     // if(GROUP_SEG) g.create_groups(excludedSets);
+    start_time = chrono::high_resolution_clock::now();
     if(GROUP_SEG) g.findGroups(excludedSets);
+    end_time = chrono::high_resolution_clock::now();
+    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+
 
     if(PRINT) {
         cout << "Added " << uniqueSets.size() << " subsets" << endl; 
@@ -80,7 +94,7 @@ void SetCover::columnDomination() {
     int nIntersect;
     pair<int, int> setA, setB;
 
-    #pragma omp parallel for private(setA, setB, nIntersect)
+    #pragma omp parallel for schedule(dynamic, 1) private(setA, setB, nIntersect)
     for(int i=0; i < scp.m-1; i++) {
         for(int j=i+1; j < scp.m; j++) {
             setA = indexedSubsets[i];

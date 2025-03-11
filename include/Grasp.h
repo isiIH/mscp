@@ -8,6 +8,7 @@
 #include <cmath>
 #include <chrono>
 #include <omp.h>
+#include <assert.h>
 
 #include <config.h>
 #include <Set.h>

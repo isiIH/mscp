@@ -4,6 +4,7 @@
 #include <iostream>
 #include <algorithm>
 #include <execution>
+#include <chrono>
 
 #include <config.h>
 #include <RowCovering.h>

@@ -8,17 +8,25 @@ SetCover Grasp::search() {
     
     if(GROUP_SEG) searchPerGroup(solution);
     else {
+        auto start_time = chrono::high_resolution_clock::now();
         // Initial solution
         SetCover newSol = solution;
         randSuccintSC(newSol, false);
-
+        
         if(PRINT) printf("Initial Sol. Cardinality: %d\n", newSol.size());
-
+        
         bool improve = true;
-        for(int iter=0; iter< MAX_ITER; iter++)
+        for(int iter=0; iter< MAX_ITER; iter++) {
+            if(PRINT) {
+                printf("--------------------------------------------\n");
+                printf("IT: %d\n", (iter + 1));
+            }
             updateSolution(newSol, solution.rowMap, improve);
-
+        }
+        
         solution = newSol;
+        auto end_time = chrono::high_resolution_clock::now();
+        printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
     }
 
     // Add unique sets (grade 1) to the solution
@@ -33,8 +41,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
     
     #pragma omp parallel for default(none) shared(groupSolutions, solution, numGroups)
     for(int ng=0; ng < numGroups; ng++) {
-        auto start_time = chrono::high_resolution_clock::now();
-
+        
         // Define U as the union of the subsets
         SetCover groupSol = solution;
         vector<int> group = solution.g.groups[ng];
@@ -46,7 +53,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
         if(CHECK) printf("\n");
         // if unique sets were found, intersect with the original U
         for(int i=0; i<scp.nWX; i++) groupSol.U.S[i] &= solution.U.S[i];
-
+        
         // upgrade rowMap
         int i=0;
         while(i < groupSol.rowMap.size()) {
@@ -56,27 +63,31 @@ void Grasp::searchPerGroup(SetCover& solution) {
             else i++;
         }
 
+        int universe = groupSol.U.size();
+        
         if(CHECK) {
             printf("|U| = %d\n", groupSol.U.size());
             printf("|rowMap| = %ld\n", groupSol.rowMap.size());
         }
-
+        
         // Initial solution
+        auto start_time = chrono::high_resolution_clock::now();
         SetCover sol = groupSol;
         randSuccintSC(sol, false);
-
+        
         if(PRINT) printf("Initial Sol. Cardinality: %d\n", sol.size());
-
+        
         bool improve = true;
         for(int iter=0; iter< MAX_ITER; iter++){
             if(PRINT) {
                 printf("--------------------------------------------\n");
                 printf("Group %d IT: %d\n", (ng + 1), (iter + 1));
             }
+            assert(universe == groupSol.rowMap.size());
             updateSolution(sol, groupSol.rowMap, improve);
         }
 
-        printf("Group %d size: %ld\n", (ng + 1), sol.solution.size());
+        printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), universe, group.size(), sol.solution.size());
 
         groupSolutions[ng] = sol.solution;
 
@@ -128,7 +139,7 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     randSuccintSC(newSol, improve);
 
     // Delete redundant subsets
-    i=newSol.uniqueSets.size();
+    i=0;
     while(i < newSol.size()){
         if(newSol.isCovered(scp.X, newSol.solution[i])) {
             if(CHECK) printf("Redundant subset erased: %d\n", newSol.solution[i]);
@@ -170,7 +181,7 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
         }
     }
 
-    while( C.U.size() > 0 ) { // Iterate until U is empty
+    while( !C.rowMap.empty() ) { // Iterate until rowMap is empty
         p = 0;
         grade = C.rowMap[p].n_columns;
         bestCoverage = numeric_limits<double>::max();
