@@ -3,31 +3,40 @@ import random
 def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
     universe = list(range(1, n + 1))
     subsets = [[] for _ in range(m)]
+    groups = [[] for _ in range(num_groups)]
 
     #divide universe in groups
-    group_size = n // num_groups
-    groups = [universe[i * group_size: (i + 1) * group_size] for i in range(num_groups)]
+    for i in range(num_groups):
+        groups[i].append(universe[i])
+    # Randomly assign the rest of the elements to groups
+    for e in universe[num_groups:]:
+        group = random.randint(0, num_groups - 1)
+        groups[group].append(e)
 
     left_subsets = m
     for i, group in enumerate(groups):
         n_subsets = random.randint(1, min(left_subsets,  m // num_groups))
         if(i == len(groups) - 1):
             n_subsets = left_subsets
+        print(f"Group {i}: {len(group)} elements, {n_subsets} subsets")
 
         # Add every element inside a random subset
         for e in group:
-            rand_subset = random.randint(m - left_subsets, (m - left_subsets) + n_subsets - 1)
-            subsets[rand_subset].append(e)
+            element_subsets = random.randint(1, n_subsets)
+            # Randomly select a list of subsets to add the element to
+            ss = random.sample(subsets[m - left_subsets:(m - left_subsets) + n_subsets], element_subsets)
 
-        # Add more elements to random subsets
+            [s.append(e) for s in ss]
+   
         for j,subset in enumerate(subsets[m - left_subsets:(m - left_subsets) + n_subsets]):
-            subset_size = random.randint(1, len(group) // 4)
-            subset_size -= len(subset)
-            if subset_size > 0:
-                subset += random.sample(group, subset_size)
-            # print(f"Group {i} ({j}): {len(subset)} - {subset}")
+            if len(subset) == 0:
+                subset += random.sample(group, random.randint(1, len(group) // 2 + 1))
+            subset.sort()
+            print(f"({j}): {len(subset)} - {subset}")
 
         left_subsets -= n_subsets
+
+    assert(sum([len(group) for group in groups]) == n)
 
     with open(filename, "w") as file:
         file.write(f"{n} {m}\n")
@@ -36,4 +45,4 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
 
     print(f"Dataset guardado en {filename}")
 
-generate_set_cover_file("test/ex9.txt", n=10000, m=20000, num_groups=16)
+generate_set_cover_file("test/xd2.txt", n=500, m=100, num_groups=32)

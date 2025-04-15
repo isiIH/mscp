@@ -45,14 +45,23 @@ void Grasp::searchPerGroup(SetCover& solution) {
         // Define U as the union of the subsets
         SetCover groupSol = solution;
         vector<int> group = solution.g.groups[ng];
+        if(group.size() == 1) {
+            groupSolutions[ng] = group;
+            continue;
+        }
+
         groupSol.U.clear();
         for(int ss : group) {
             if(CHECK) printf("%d ", ss);
             groupSol.U.add(scp.bF[ss]);
         }
-        if(CHECK) printf("\n");
+        
         // if unique sets were found, intersect with the original U
-        for(int i=0; i<scp.nWX; i++) groupSol.U.S[i] &= solution.U.S[i];
+        for(int i=0; i<scp.nWX; i++) {
+            groupSol.U.S[i] &= solution.U.S[i];
+        }
+
+        if(groupSol.U.size() == 0) continue;
         
         // upgrade rowMap
         int i=0;
@@ -62,7 +71,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
             }
             else i++;
         }
-
+        
         int universe = groupSol.U.size();
         
         if(CHECK) {

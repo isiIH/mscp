@@ -9,7 +9,6 @@
 #include <config.h>
 #include <RowCovering.h>
 #include <SCP.h>
-#include <Group.h>
 #include <UnionFind.h>
 
 using namespace std;
@@ -20,8 +19,8 @@ public:
     Set U;
     vector<RowCovering> rowMap;
     SCP scp;
-    // Group g;
     UnionFind g;
+    vector<vector<int>> neightbors;
 
     vector<int> uniqueSets;
     Set excludedSets;
@@ -39,6 +38,7 @@ public:
     bool isCovered(const Set& X, const int ignoreSet = -1);
     int size();
     void printRowMap();
+    vector<int> greedy();
 };
 
 #endif

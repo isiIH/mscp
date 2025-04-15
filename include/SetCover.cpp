@@ -3,8 +3,10 @@
 SetCover::SetCover() {};
 
 SetCover::SetCover(SCP &scp) : scp(scp) {
-    // if(GROUP_SEG) g = Group(scp.m);
-    if(GROUP_SEG) g = UnionFind(scp.m);
+    if(GROUP_SEG) {
+        g = UnionFind(scp.m);
+        neightbors.resize(scp.m);
+    }
     excludedSets = Set(scp.nWF);
     U = Set(scp.X);
     rowMap.resize(scp.n);
@@ -42,21 +44,31 @@ void SetCover::preprocess() {
     end_time = chrono::high_resolution_clock::now();
     printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
-
     printRowMap();
 
+    // for(int i=0; i<scp.m; i++) {
+    //     if(U.intersectionLength(scp.bF[i]) == 0) printf("set %d is empty\n", i);
+    // }
+
     // Universe Segmentation
-    // if(GROUP_SEG) g.create_groups(excludedSets);
     start_time = chrono::high_resolution_clock::now();
-    if(GROUP_SEG) g.findGroups(excludedSets);
+    if(GROUP_SEG) {
+        #pragma omp parallel for
+        for(int i=0; i<scp.m; i++) {
+            if(!excludedSets.check(i)) {
+                for(int neightbor : neightbors[i])
+                    if(!excludedSets.check(neightbor)) g.unite(i, neightbor);
+            }
+        }
+        g.findGroups(excludedSets);
+    }
     end_time = chrono::high_resolution_clock::now();
     printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
-
-    if(PRINT) {
+    if(1) {
         cout << "Added " << uniqueSets.size() << " subsets" << endl; 
         cout << "Excluded " << excludedSets.size() - uniqueSets.size() << " subsets" << endl;
-        cout << "|X| = " << scp.X.size() << endl;
+        cout << "|X| = " << rowMap.size() << endl;
     }
 }
 
@@ -91,27 +103,25 @@ void SetCover::columnDomination() {
         return a.second < b.second;
     });
 
-    int nIntersect;
-    pair<int, int> setA, setB;
-
-    #pragma omp parallel for schedule(dynamic, 1) private(setA, setB, nIntersect)
+    #pragma omp parallel for schedule(dynamic, 1)
     for(int i=0; i < scp.m-1; i++) {
-        for(int j=i+1; j < scp.m; j++) {
-            setA = indexedSubsets[i];
-            setB = indexedSubsets[j];
+        int nIntersect;
+        pair<int, int> setA = indexedSubsets[i];
+        int setB;
 
-            nIntersect = scp.bF[setA.first].intersectionLength(scp.bF[setB.first]);
+        for(int j=i+1; j < scp.m; j++) {
+            setB = indexedSubsets[j].first;
+
+            nIntersect = scp.bF[setA.first].intersectionLength(scp.bF[setB]);
 
             // If the intersection is the same size of the smallest subset 
             if(nIntersect == setA.second) {
                 excludedSets.push_back(setA.first);
                 break;
             }
-                    
-            // if the set is not excluded and has an intersection > 0, add to the graph
-            if(GROUP_SEG && nIntersect)
-                g.unite(setA.first, setB.first);
-                // g.add_edge(setA.first, setB.first);
+
+            // Save the neightbors if the subset A is not excluded
+            if(GROUP_SEG && nIntersect) neightbors[setA.first].push_back(setB);
         }
     }
 }
@@ -174,3 +184,40 @@ void SetCover::printRowMap() {
         }
     }
 }
+
+// vector<int> SetCover::greedy() {
+//     Set ignore(excludedSets);
+//     int i;
+//     Set X(U);
+//     vector<int> C;
+//     int maxLengthSS = 0;
+//     int lengthSS;
+//     int posSet;
+
+//     map<int, Set> subsets;
+//     for (i=0; i<scp.bF.size(); i++) subsets[i] = scp.bF[i];
+
+//     while( X.size() > 0 ) {
+
+//         for(pair<int, Set> ss_pos : subsets){
+//             lengthSS = X.intersectionLength(ss_pos.second);
+//             if(lengthSS > maxLengthSS) {
+//                 maxLengthSS = lengthSS;
+//                 posSet = ss_pos.first;
+//             }
+//         }
+
+//         X.substract(subsets[posSet]);
+//         C.push_back(posSet);
+//         subsets.erase(posSet);
+        
+//         ignore.push_back(posSet);
+//         printf("excludedSets: %d\n", posSet);
+//         g.findGroups(ignore);
+//         if(g.sizeGroups() > 1) printf("grupos: %d\n",g.sizeGroups());
+
+//         maxLengthSS = 0;
+//     }
+
+//     return C;
+// }

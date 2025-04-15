@@ -41,17 +41,20 @@ int UnionFind::find(const int u) {
 }
 
 void UnionFind::findGroups(const Set& excluded) {
+    groups.clear();
     unordered_map<int, vector<int>> group_map;
 
     for (int i = 0; i < parent.size(); i++) {
         if(!excluded.check(i)) {
             int root = find(i);
+            // printf("root: %d, i: %d\n", root, i);
             group_map[root].push_back(i);
         }
     }
 
-    for (auto& entry : group_map)
+    for (auto &entry : group_map) {
         groups.push_back(entry.second);
+    }
 }
 
 int UnionFind::sizeGroups() {
