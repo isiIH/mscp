@@ -13,7 +13,7 @@ void SCP::readFile(const string filename) {
 
 void SCP::readFileScp(const string filename) {
     cout << "Reading file " << filename << "..." << endl;
-    string nametxt = "test/" + filename;
+    string nametxt = "test/" + filename + ".txt";
     ifstream file(nametxt.c_str());
     if(file.fail()){
         cout << "File not found!" << endl;
@@ -59,7 +59,7 @@ void SCP::readFileScp(const string filename) {
 
 void SCP::readFilePartition(const string filename) {
     cout << "Reading file " << filename << "..." << endl;
-    string nametxt = "test/" + filename;
+    string nametxt = "test/" + filename + ".txt";
     ifstream file(nametxt.c_str());
     if(file.fail()){
         cout << "File not found!" << endl;

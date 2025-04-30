@@ -5,7 +5,6 @@ SetCover::SetCover() {};
 SetCover::SetCover(SCP &scp) : scp(scp) {
     if(GROUP_SEG) {
         g = UnionFind(scp.m);
-        neightbors.resize(scp.m);
     }
     excludedSets = Set(scp.nWF);
     U = Set(scp.X);
@@ -24,7 +23,7 @@ void SetCover::preprocess() {
     auto start_time = chrono::high_resolution_clock::now();
     columnDomination();
     auto end_time = chrono::high_resolution_clock::now();
-    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    printf("Time Column Domination: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     // Create map structure
     start_time = chrono::high_resolution_clock::now();
@@ -35,35 +34,60 @@ void SetCover::preprocess() {
 
     sort(execution::par, rowMap.begin(), rowMap.end(), [&](RowCovering a, RowCovering b){return a.n_columns < b.n_columns;});
     end_time = chrono::high_resolution_clock::now();
-    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    printf("Time Create Map: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     printRowMap();
     // Add uniques elements
     start_time = chrono::high_resolution_clock::now();
     rowReduction();
     end_time = chrono::high_resolution_clock::now();
-    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    printf("Time RowReduction: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     printRowMap();
 
-    // for(int i=0; i<scp.m; i++) {
-    //     if(U.intersectionLength(scp.bF[i]) == 0) printf("set %d is empty\n", i);
-    // }
-
     // Universe Segmentation
     start_time = chrono::high_resolution_clock::now();
+    // if(GROUP_SEG) {
+    //     #pragma omp parallel for
+    //     for(const Edge& e : edges) {
+    //         // printf("Edge: %d %d %d\n", e.u, e.v, e.w);
+    //         if(!excludedSets.check(e.u) && !excludedSets.check(e.v)) g.unite(e.u, e.v);
+    //     }
+    //     g.findGroups(excludedSets);
+    //     printf("Groups: %d\n", g.sizeGroups());
+    // }
+    // g.printGroups();
     if(GROUP_SEG) {
-        #pragma omp parallel for
-        for(int i=0; i<scp.m; i++) {
-            if(!excludedSets.check(i)) {
-                for(int neightbor : neightbors[i])
-                    if(!excludedSets.check(neightbor)) g.unite(i, neightbor);
-            }
-        }
-        g.findGroups(excludedSets);
+        buildMST();
+        subtreeW.resize(scp.m);
+        childW.resize(mst.size());
+        dfs(mst[0].u, -1);  
+        // print adjacency list
+        // printf("Adjacency List:\n");
+        // for(int i=0; i<adj.size(); i++) {
+        //     printf("%d: ", i);
+        //     for(pair<int, int> &e : adj[i]) {
+        //         printf("(%d, %d) ", e.first, e.second);
+        //     }
+        //     printf("\n");
+        // }
+        // print subtreeW();
+        // printf("SubtreeW: ");  
+        // for(int i=0; i<subtreeW.size(); i++) {
+        //     printf("%d ", subtreeW[i]);
+        // }
+        // printf("\n");
+        // printf("ChildW: ");
+        // for(int i=0; i<childW.size(); i++) {
+        //     printf("%d ", childW[i]);
+        // }
+        // printf("\n");
+        printf("Total edges: %ld\n", edges.size());
+        printf("Total Weight: %d\n", totalWeight);
+        calcBestCut();
     }
     end_time = chrono::high_resolution_clock::now();
-    printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     if(1) {
         cout << "Added " << uniqueSets.size() << " subsets" << endl; 
@@ -95,34 +119,54 @@ void SetCover::columnDomination() {
     // sort the subsets in ascending order
     vector<pair<int, int>> indexedSubsets(scp.m);
 
-    #pragma omp parallel for shared(indexedSubsets)
+    #pragma omp parallel for
     for(int i=0; i<scp.m; i++)
         indexedSubsets[i] = {i, scp.bF[i].size()};
 
-    sort(execution::par, indexedSubsets.begin(), indexedSubsets.end(), [](pair<int, int> &a, pair<int, int> &b){
+    sort(execution::par, indexedSubsets.begin(), indexedSubsets.end(), [](pair<int, int> a, pair<int, int> b) {
         return a.second < b.second;
     });
 
-    #pragma omp parallel for schedule(dynamic, 1)
-    for(int i=0; i < scp.m-1; i++) {
-        int nIntersect;
-        pair<int, int> setA = indexedSubsets[i];
-        int setB;
+    #pragma omp parallel shared(indexedSubsets) 
+    {
 
-        for(int j=i+1; j < scp.m; j++) {
-            setB = indexedSubsets[j].first;
+        vector<Edge> local_edges;
+        #pragma omp for schedule(dynamic, 1) nowait
+        for(int i=0; i < scp.m-1; i++) {
+            bool ignore = false;
+            int nIntersect;
+            pair<int, int> setA = indexedSubsets[i];
+            int setB;
 
-            nIntersect = scp.bF[setA.first].intersectionLength(scp.bF[setB]);
+            for(int j=i+1; j < scp.m; j++) {
+                setB = indexedSubsets[j].first;
 
-            // If the intersection is the same size of the smallest subset 
-            if(nIntersect == setA.second) {
-                excludedSets.push_back(setA.first);
-                break;
+                nIntersect = scp.bF[setA.first].intersectionLength(scp.bF[setB]);
+
+                // If the intersection is the same size of the smallest subset 
+                if(nIntersect == setA.second) {
+                    #pragma omp critical
+                    {
+                        excludedSets.push_back(setA.first);
+                    }
+                    ignore = true;
+                    break;
+                }
+
+                // Save the neightbors if the subset A is not excluded
+                if(GROUP_SEG && nIntersect) local_edges.push_back(Edge(setA.first, setB, nIntersect));
             }
-
-            // Save the neightbors if the subset A is not excluded
-            if(GROUP_SEG && nIntersect) neightbors[setA.first].push_back(setB);
+            
+            // if(ignore) {
+            //     local_edges.clear();
+            // }
         }
+
+        #pragma omp critical
+        {
+            edges.insert(edges.end(), local_edges.begin(), local_edges.end());
+        }
+
     }
 }
 
@@ -185,39 +229,83 @@ void SetCover::printRowMap() {
     }
 }
 
-// vector<int> SetCover::greedy() {
-//     Set ignore(excludedSets);
-//     int i;
-//     Set X(U);
-//     vector<int> C;
-//     int maxLengthSS = 0;
-//     int lengthSS;
-//     int posSet;
+void SetCover::buildMST() {
+    UnionFind uf = UnionFind(scp.m);
 
-//     map<int, Set> subsets;
-//     for (i=0; i<scp.bF.size(); i++) subsets[i] = scp.bF[i];
+    // Sort edges in descending order
+    sort(edges.begin(), edges.end());
 
-//     while( X.size() > 0 ) {
+    int edgeId = 0;
+    for(const Edge& e : edges) {
+        if(!excludedSets.check(e.u) && !excludedSets.check(e.v) && uf.unite(e.u, e.v)) {
+            mst.push_back(e);
+            totalWeight += e.w;
+            adj[e.u].emplace_back(e.v, edgeId);
+            adj[e.v].emplace_back(e.u, edgeId);
+            edgeId++;
+            if (mst.size() == scp.m - 1) break;
+        }
+    }
 
-//         for(pair<int, Set> ss_pos : subsets){
-//             lengthSS = X.intersectionLength(ss_pos.second);
-//             if(lengthSS > maxLengthSS) {
-//                 maxLengthSS = lengthSS;
-//                 posSet = ss_pos.first;
-//             }
-//         }
+    // for(const Edge& e : mst) {
+    //     printf("(%d <- (%d) -> %d)\n", e.u+1, e.w, e.v+1);
+    // }
 
-//         X.substract(subsets[posSet]);
-//         C.push_back(posSet);
-//         subsets.erase(posSet);
-        
-//         ignore.push_back(posSet);
-//         printf("excludedSets: %d\n", posSet);
-//         g.findGroups(ignore);
-//         if(g.sizeGroups() > 1) printf("grupos: %d\n",g.sizeGroups());
+    printf("MST size: %ld\n", mst.size());
+}
 
-//         maxLengthSS = 0;
-//     }
+void SetCover::dfs(int node, int parent) {
+    subtreeW[node] = 0;
+    for(pair<int, int> &e : adj[node]) {
+        if (e.first == parent) continue;
+        dfs(e.first, node);
+        // peso de la rama que "cuelga" por e.eid:
+        childW[e.second] = subtreeW[e.first];
+        // acumula ese peso en el subárbol de v
+        subtreeW[node] += childW[e.second] + mst[e.second].w;
+    }
+}
 
-//     return C;
-// }
+void SetCover::calcBestCut() {
+    int bestDiff = numeric_limits<int>::max();;
+    int bestId = -1;
+    int diff;
+    for(int i=0; i<mst.size(); i++) {
+        diff = llabs(2 * childW[i] - totalWeight + mst[i].w);
+        if(diff < bestDiff) {
+            bestDiff = diff;
+            bestId = i;
+        }
+    }
+    printf("Best Diff: %d\n", bestDiff);
+    printf("Best Id: %d\n", bestId);
+
+    Set visited(scp.m);
+    vector<vector<int>> groups(2);
+    collectGroup(mst[bestId].u, visited, groups[0], {mst[bestId].u, mst[bestId].v});
+    collectGroup(mst[bestId].v, visited, groups[1], {mst[bestId].u, mst[bestId].v});
+
+    // print groups
+    // printf("Group 1: ");
+    // for(int i=0; i<groups[0].size(); i++) {
+    //     printf("%d ", groups[0][i]);
+    // }
+    // printf("\n");
+    // printf("Group 2: ");
+    // for(int i=0; i<groups[1].size(); i++) {
+    //     printf("%d ", groups[1][i]);
+    // }
+    // printf("\n");
+}
+
+void SetCover::collectGroup(int u, Set& visited, vector<int>& group, const pair<int,int> &cut) {
+    visited.push_back(u);
+    group.push_back(u);
+    for (auto &[v, eid] : adj[u]) {
+        if (visited.check(v)) continue;
+        Edge e = mst[eid];
+        if ((e.u == cut.first && e.v == cut.second) || (e.u == cut.second && e.v == cut.first))
+            continue;
+        collectGroup(v, visited, group, cut);
+    }
+}

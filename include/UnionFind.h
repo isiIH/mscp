@@ -20,7 +20,7 @@ public:
     UnionFind();
     UnionFind(const int m);
 
-    void unite(const int u, const int v);
+    bool unite(const int u, const int v);
     int find(const int u);
     void findGroups(const Set& excluded);
     int sizeGroups();

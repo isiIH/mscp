@@ -1,5 +1,7 @@
 *.pdf
 *.excalidraw
-results/
+results.txt
 grasp
 graspCPU
+exp.ipynb
+mscp_env/

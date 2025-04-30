@@ -10,6 +10,8 @@
         "unordered_map": "cpp",
         "new": "cpp",
         "deque": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "*.tcc": "cpp",
+        "limits": "cpp"
     }
 }

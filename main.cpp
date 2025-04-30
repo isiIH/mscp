@@ -26,6 +26,13 @@ int main(int argc, char** argv) {
 
     // Read file
     SCP scp = SCP(argv[1]);
+    string outputFilename = "results.txt";
+    ofstream outFile(outputFilename, ios::app);
+
+    if (!outFile) {
+        cerr << "Error al crear el archivo: " << outputFilename << endl;
+        return 0;
+    }
 
     // Create succint array
     auto start_time = chrono::high_resolution_clock::now();
@@ -99,7 +106,21 @@ int main(int argc, char** argv) {
     assert(alg.scp.X.size() == scp.n);
     assert(alg.bestSol.isCovered(scp.X));
 
-    cout << argv[1] << " " << scp.n << " " << scp.m << " " << alg.bestSol.uniqueSets.size() << " " << alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size() << " " << dur_greedyExh/1000000.0 << " " << greedySol.size() << " " << dur_apr/1000000.0 << " " << alg.bestSol.size() << " " << endl;
+    // Store results
+    outFile << argv[1] << " "
+        << scp.n << " "
+        << scp.m << " "
+        << alg.bestSol.uniqueSets.size() << " "
+        << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
+        << GROUP_SEG << " "
+        << (GROUP_SEG ? alg.bestSol.g.sizeGroups() : 0) << " "
+        << (dur_greedyExh / 1000000.0) << " "
+        << greedySol.size() << " "
+        << (dur_apr / 1000000.0) << " "
+        << alg.bestSol.size() << " "
+        << argv[2]
+        << endl;
+    outFile.close();
 
     return 0;
 }

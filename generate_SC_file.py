@@ -45,4 +45,4 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
 
     print(f"Dataset guardado en {filename}")
 
-generate_set_cover_file("test/xd2.txt", n=500, m=100, num_groups=32)
+generate_set_cover_file("test/ex10.txt", n=5000, m=10000, num_groups=32)

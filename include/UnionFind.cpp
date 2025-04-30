@@ -11,12 +11,12 @@ UnionFind::UnionFind(const int m) {
         parent[i] = i;
 }
 
-void UnionFind::unite(const int u, const int v) {
+bool UnionFind::unite(const int u, const int v) {
     int uRoot = find(u);
     int vRoot = find(v);
 
     // if they are in the same group already
-    if(uRoot == vRoot) return;
+    if(uRoot == vRoot) return false;
 
     // unite them by rank
     if(rank[uRoot] < rank[vRoot]) {
@@ -27,6 +27,7 @@ void UnionFind::unite(const int u, const int v) {
         parent[vRoot] = uRoot;
         rank[uRoot]++;
     }
+    return true;
 }
 
 int UnionFind::find(const int u) {
