@@ -1,34 +1,58 @@
-#ifndef GROUP_H
-#define GROUP_H
 
-#include <iostream>
+#ifndef UNION_FIND_H
+#define UNION_FIND_H
+
 #include <vector>
+#include <iostream>
+#include <omp.h>
+#include <execution>
+#include <algorithm>
+#include <limits>
 #include <map>
-#include <set>
+#include <chrono>
 
-#include <BasicCDS.h>
+#include <Edge.h>
 #include <Set.h>
+#include <RowCovering.h>
 
 using namespace std;
-using namespace cds;
+
+class UnionFind {
+public:
+    vector<int> parent, rank;
+    UnionFind();
+    UnionFind(const int n);
+    int find(const int u);
+    bool unite(const int u, const int v);
+};
 
 class Group {
-    Set visited;
-    int m, nWF;
-    
+private:
+    int n, nW;
+    bool type; // 0:UNION-FIND, 1:MST
+    UnionFind uf;
+    vector<Edge> mst;
+    vector<int> subtreeW;
+    vector<int> edgeW;
+    map<int, vector<pair<int, int>>> adj;
+    int totalWeight = 0;
 public:
-    vector<vector<int>> list_groups;
-    map<int, vector<int>> graph; //Store adjacent nodes
+    vector<Set> U;
+    vector<vector<int>> groups;
 
     Group();
-    Group(const int m);
+    Group(const bool type, const int n, const int nW);
+    
+    void buildMST(vector<Edge>& edges);
+    void dfs(const int node, const int parent);
+    void calcBestCut();
+    void collectGroup(const int u, Set& visited, const int groupId, const int bestId);
+    void distributeSubsets();
 
-    void add_edge(const int u, const int v);
-    void create_groups(const Set& excluded);
-    void dfs(const int node, vector<int>& group);
-    int groups();
-    void print();
-    void printGraph();
+    void findGroups(vector<Edge>& edges, const vector<RowCovering>& rowMap);
+    int sizeGroups();
+    void printGroups();
+
 };
 
 #endif

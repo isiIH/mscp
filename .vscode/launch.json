@@ -5,7 +5,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/grasp",
-            "args": ["xd.txt","1"],
+            "args": ["ex2","1"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
             "environment": [],

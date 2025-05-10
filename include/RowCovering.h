@@ -18,6 +18,7 @@ public:
     RowCovering(const Set &ignSets, const vector<Set> &bF, const int row);
 
     void createRowCovering(const Set &ignSets, const vector<Set> &bF);
+    int countIntersection(const vector<int>& B);
 };
 
 #endif

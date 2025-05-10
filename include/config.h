@@ -3,10 +3,12 @@
 
 #define PRINT 0
 #define CHECK 0
+#define TEST 0
 
 #define RCL 0.7
 #define MAX_ITER 200
 
 #define GROUP_SEG 1
+#define SEG_TYPE 1 // 0: UNION-FIND, 1: MST
 
 #endif

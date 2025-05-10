@@ -14,3 +14,18 @@ void RowCovering::createRowCovering(const Set &ignSets, const vector<Set> &bF) {
         }         
     }
 }
+
+int RowCovering::countIntersection(const vector<int>& B) {
+    int i = 0, j = 0, count = 0;
+    int sizeA = col_covering.size(), sizeB = B.size();
+    while (i < sizeA && j < sizeB) {
+        if (col_covering[i] < B[j]) {
+            i++;
+        } else if (B[j] < col_covering[i]) {
+            j++;
+        } else { // col_covering[i] == B[j]
+            count++; i++; j++;
+        }
+    }
+    return count;
+}

@@ -37,77 +37,187 @@ SetCover Grasp::search() {
 
 void Grasp::searchPerGroup(SetCover& solution) {
     int numGroups = solution.g.sizeGroups();
-    vector<vector<int>> groupSolutions(numGroups);
+    vector<SetCover> groupSolutions(numGroups);
+
+    return;
+
+    // for(int ng=0; ng < numGroups; ng++) {
+    //     groupSolutions[ng] = solution;
+    //     vector<int> group = solution.g.groups[ng];
+    //     // if the group is empty or with one subset, skip it
+    //     if(group.size() < 2) {
+    //         groupSolutions[ng].solution = group;
+    //         groupSolutions[ng].U.clear();
+    //         continue;
+    //     }
+
+    //     // Compute the union of the subsets
+    //     groupSolutions[ng].U.clear();
+    //     for(int ss : group)
+    //         groupSolutions[ng].U.add(scp.bF[ss]);
+    //     // Intersect with the original U to delete unique elements
+    //     for(int i=0; i<scp.nWX; i++)
+    //         groupSolutions[ng].U.S[i] &= solution.U.S[i];
+
+    //     // Compute the new rowMap
+    // }
+
+    // // Check if there is no intersection between the groups
+    // Set mergeU(groupSolutions[0].U);
+    // for(int ng=1; ng < numGroups; ng++)
+    //     for(int i=0; i<scp.nWX; i++) mergeU.S[i] = mergeU.S[i] & groupSolutions[ng].U.S[i];
+
+    // // If there is intersection, distribute the elements
+    // if(mergeU.size() != 0) {
+    //     for(int e=0; e<scp.n; e++) {
+    //         if(!mergeU.check(e)) continue;
+
+    //         vector<int> subsets = solution.rowMap[e].col_covering;
+    //         // choose one subset randomly
+    //         int randSubset = rand() % subsets.size();
+    //         int groupId = solution.g.subsetToGroup[subsets[randSubset]];
+    //         printf("GroupId %d\n", groupId);
+    //         // delete the element from the other groups
+    //         for(int ng=0; ng < numGroups; ng++) {
+    //             if(ng == groupId) {
+                    
+    //             };
+                
+    //             groupSolutions[ng].U.erase(e);
+
+    //         }
+    //         // int i = 0;
+    //         // for(int ss : subsets) {
+    //         //     int groupDel = solution.g.subsetToGroup[ss];
+    //         //     printf("Element %d Group %d, subset %d\n", e+1, groupDel, ss);
+    //         //     if(groupDel != groupId)  {
+    //         //         RowCovering& rc = groupSolutions[groupDel].rowMap[e];
+    //         //         rc.col_covering.erase(rc.col_covering.begin() + i);
+    //         //         rc.n_columns--;
+    //         //         groupSolutions[groupDel].U.erase(e);
+
+    //         //         printf("U size: %d\n", groupSolutions[groupDel].U.size());
+    //         //         printf("RowMap size: %ld %d\n", rc.col_covering.size(), rc.n_columns);
+    //         //     } else i++;
+
+    //         // }
+    //     }
+    // }
+
+    // if(1) {
+    //     for(int ng=0; ng < numGroups; ng++) {
+    //         printf("Group %d (%d) size: %ld\n", (ng + 1), groupSolutions[ng].U.size(), groupSolutions[ng].solution.size());
+    //         // for(int ss : groupSolutions[ng].solution) {
+    //         //     printf("%d ", ss);
+    //         // }
+    //         // printf("\n");
+    //         // printf("RowMap: ");
+    //         // for(RowCovering row : groupSolutions[ng].rowMap) {
+    //         //     printf("(%d) |%d| => ", row.row, row.n_columns);
+    //         //     for (int index : row.col_covering)
+    //         //         printf("%d ", index);
+    //         // }
+    //         // printf("\n");
+    //         // printf("U: ");
+    //         // for(int i=0; i<scp.nWX; i++) {
+    //         //     if(groupSolutions[ng].U.check(i)) {
+    //         //         printf("%d ", i);
+    //         //     }
+    //         // }
+    //         // printf("\n");
+    //         printf("U size: %d\n", groupSolutions[ng].U.size());
+    //         printf("RowMap size: %ld\n", groupSolutions[ng].rowMap.size());
+    //     }
+    // }
+
+    // return;
+
+    // for(int ng=0; ng < numGroups; ng++) {
+        
+    // }
     
-    #pragma omp parallel for default(none) shared(groupSolutions, solution, numGroups)
-    for(int ng=0; ng < numGroups; ng++) {
+    // #pragma omp parallel for default(none) shared(groupSolutions, solution, numGroups)
+    // for(int ng=0; ng < numGroups; ng++) {
         
-        // Define U as the union of the subsets
-        SetCover groupSol = solution;
-        vector<int> group = solution.g.groups[ng];
-        if(group.size() == 1) {
-            groupSolutions[ng] = group;
-            continue;
-        }
+    //     // Define U as the union of the subsets
+    //     SetCover groupSol = solution;
+    //     vector<int> group = solution.g.groups[ng];
+    //     if(group.size() == 1) {
+    //         groupSolutions[ng] = group;
+    //         continue;
+    //     }
 
-        groupSol.U.clear();
-        for(int ss : group) {
-            if(CHECK) printf("%d ", ss);
-            groupSol.U.add(scp.bF[ss]);
-        }
+    //     groupSol.U.clear();
+    //     for(int ss : group) {
+    //         if(CHECK) printf("%d ", ss);
+    //         groupSol.U.add(scp.bF[ss]);
+    //     }
         
-        // if unique sets were found, intersect with the original U
-        for(int i=0; i<scp.nWX; i++) {
-            groupSol.U.S[i] &= solution.U.S[i];
-        }
+    //     // if unique sets were found, intersect with the original U
+    //     for(int i=0; i<scp.nWX; i++) {
+    //         groupSol.U.S[i] &= solution.U.S[i];
+    //     }
 
-        if(groupSol.U.size() == 0) continue;
+    //     if(groupSol.U.size() == 0) continue;
         
-        // upgrade rowMap
-        int i=0;
-        while(i < groupSol.rowMap.size()) {
-            if(!groupSol.U.check(groupSol.rowMap[i].row)) {
-                groupSol.rowMap.erase(groupSol.rowMap.begin() + i);
-            }
-            else i++;
-        }
+    //     // upgrade rowMap
+    //     int i=0;
+    //     while(i < groupSol.rowMap.size()) {
+    //         if(!groupSol.U.check(groupSol.rowMap[i].row)) {
+    //             groupSol.rowMap.erase(groupSol.rowMap.begin() + i);
+    //         }
+    //         else i++;
+    //     }
         
-        int universe = groupSol.U.size();
+    //     int universe = groupSol.U.size();
         
-        if(CHECK) {
-            printf("|U| = %d\n", groupSol.U.size());
-            printf("|rowMap| = %ld\n", groupSol.rowMap.size());
-        }
+    //     if(CHECK) {
+    //         printf("|U| = %d\n", groupSol.U.size());
+    //         printf("|rowMap| = %ld\n", groupSol.rowMap.size());
+    //     }
         
-        // Initial solution
-        auto start_time = chrono::high_resolution_clock::now();
-        SetCover sol = groupSol;
-        randSuccintSC(sol, false);
+    //     // Initial solution
+    //     auto start_time = chrono::high_resolution_clock::now();
+    //     SetCover sol = groupSol;
+    //     randSuccintSC(sol, false);
         
-        if(PRINT) printf("Initial Sol. Cardinality: %d\n", sol.size());
+    //     if(PRINT) printf("Initial Sol. Cardinality: %d\n", sol.size());
         
-        bool improve = true;
-        for(int iter=0; iter< MAX_ITER; iter++){
-            if(PRINT) {
-                printf("--------------------------------------------\n");
-                printf("Group %d IT: %d\n", (ng + 1), (iter + 1));
-            }
-            assert(universe == groupSol.rowMap.size());
-            updateSolution(sol, groupSol.rowMap, improve);
-        }
+    //     bool improve = true;
+    //     for(int iter=0; iter< MAX_ITER; iter++){
+    //         if(PRINT) {
+    //             printf("--------------------------------------------\n");
+    //             printf("Group %d IT: %d\n", (ng + 1), (iter + 1));
+    //         }
+    //         assert(universe == groupSol.rowMap.size());
+    //         updateSolution(sol, groupSol.rowMap, improve);
 
-        printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), universe, group.size(), sol.solution.size());
+    //     }
+        
+    //     printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), universe, group.size(), sol.solution.size());
+        
+    //     groupSolutions[ng] = sol.solution;
 
-        groupSolutions[ng] = sol.solution;
+    //     auto end_time = chrono::high_resolution_clock::now();
 
-        auto end_time = chrono::high_resolution_clock::now();
+    //     printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    // }
 
-        printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
-    }
-
-    // copy every group sol to the original solution
-    for(vector<int> groupSol : groupSolutions)
-        solution.solution.insert(solution.solution.end(), groupSol.begin(), groupSol.end());
+    // // copy every group sol to the original solution
+    // for(vector<int> groupSol : groupSolutions) {
+    //     solution.solution.insert(solution.solution.end(), groupSol.begin(), groupSol.end());
+    // }
+    
+    // // Eliminar subconjuntos redundantes
+    // int i=0;
+    // while(i < solution.size()){
+    //     if(solution.isCovered(solution.U, solution.solution[i])) {
+    //         printf("Redundant subset erased: %d\n", solution.solution[i]);
+    //         solution.erase(i);
+    //     }
+    //     else i++;
+    // }
+    // printf("Best Sol: %d\n", solution.size());
 }
 
 void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool& improve) {

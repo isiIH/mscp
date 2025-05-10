@@ -28,8 +28,8 @@ int main(int argc, char** argv) {
     SCP scp = SCP(argv[1]);
     string outputFilename = "results.txt";
     ofstream outFile(outputFilename, ios::app);
-
-    if (!outFile) {
+    
+    if (TEST && !outFile) {
         cerr << "Error al crear el archivo: " << outputFilename << endl;
         return 0;
     }
@@ -107,20 +107,37 @@ int main(int argc, char** argv) {
     assert(alg.bestSol.isCovered(scp.X));
 
     // Store results
-    outFile << argv[1] << " "
-        << scp.n << " "
-        << scp.m << " "
-        << alg.bestSol.uniqueSets.size() << " "
-        << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
-        << GROUP_SEG << " "
-        << (GROUP_SEG ? alg.bestSol.g.sizeGroups() : 0) << " "
-        << (dur_greedyExh / 1000000.0) << " "
-        << greedySol.size() << " "
-        << (dur_apr / 1000000.0) << " "
-        << alg.bestSol.size() << " "
-        << argv[2]
-        << endl;
-    outFile.close();
+    if(1) {
+        cout << argv[1] << " "
+            << scp.n << " "
+            << scp.m << " "
+            << alg.bestSol.uniqueSets.size() << " "
+            << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
+            << GROUP_SEG << " "
+            << (GROUP_SEG ? alg.bestSol.g.sizeGroups() : 0) << " "
+            << (dur_greedyExh / 1000000.0) << " "
+            << greedySol.size() << " "
+            << (dur_apr / 1000000.0) << " "
+            << alg.bestSol.size() << " "
+            << argv[2]
+            << endl;
+    }
+    if(TEST) {
+        outFile << argv[1] << " "
+            << scp.n << " "
+            << scp.m << " "
+            << alg.bestSol.uniqueSets.size() << " "
+            << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
+            << GROUP_SEG << " "
+            << (GROUP_SEG ? alg.bestSol.g.sizeGroups() : 0) << " "
+            << (dur_greedyExh / 1000000.0) << " "
+            << greedySol.size() << " "
+            << (dur_apr / 1000000.0) << " "
+            << alg.bestSol.size() << " "
+            << argv[2]
+            << endl;
+        outFile.close();
+    }
 
     return 0;
 }
