@@ -14,6 +14,7 @@
 #include <Set.h>
 #include <SCP.h>
 #include <SetCover.h>
+#include <Group.h>
 
 using namespace std;
 
@@ -21,6 +22,7 @@ class Grasp {
 public:
     SCP scp;
     SetCover bestSol;
+    Group g;
 
     Grasp(SCP &scp);
 

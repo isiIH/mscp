@@ -103,8 +103,7 @@ int main(int argc, char** argv) {
         cout << "Time [s]: " << dur_apr/1000000.0 << endl;
     }
 
-    assert(alg.scp.X.size() == scp.n);
-    assert(alg.bestSol.isCovered(scp.X));
+    assert(alg.bestSol.isCovered());
 
     // Store results
     if(1) {
@@ -114,7 +113,7 @@ int main(int argc, char** argv) {
             << alg.bestSol.uniqueSets.size() << " "
             << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
             << GROUP_SEG << " "
-            << (GROUP_SEG ? alg.bestSol.g.sizeGroups() : 0) << " "
+            << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
             << (dur_greedyExh / 1000000.0) << " "
             << greedySol.size() << " "
             << (dur_apr / 1000000.0) << " "
@@ -129,7 +128,7 @@ int main(int argc, char** argv) {
             << alg.bestSol.uniqueSets.size() << " "
             << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
             << GROUP_SEG << " "
-            << (GROUP_SEG ? alg.bestSol.g.sizeGroups() : 0) << " "
+            << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
             << (dur_greedyExh / 1000000.0) << " "
             << greedySol.size() << " "
             << (dur_apr / 1000000.0) << " "

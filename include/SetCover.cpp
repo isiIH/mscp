@@ -3,10 +3,8 @@
 SetCover::SetCover() {};
 
 SetCover::SetCover(SCP &scp) : scp(scp) {
-    if(GROUP_SEG) {
-        g = Group(SEG_TYPE, scp.n, scp.nWX);
-    }
     excludedSets = Set(scp.nWF);
+    X = Set(scp.X);
     U = Set(scp.X);
     rowMap.resize(scp.n);
     preprocess();
@@ -45,29 +43,7 @@ void SetCover::preprocess() {
 
     printRowMap();
 
-    // Universe Segmentation
-    start_time = chrono::high_resolution_clock::now();
-    if(GROUP_SEG) {
-        edges.clear();
-        int sharedSubsets;
-        for(int i=0; i<rowMap.size() - 1; i++) {
-            for(int j=i+1; j<rowMap.size(); j++) {
-                sharedSubsets = rowMap[i].countIntersection(rowMap[j].col_covering);
-                if(sharedSubsets > 0) {
-                    // Add the edges to the group
-                    edges.push_back(Edge(rowMap[i].row, rowMap[j].row, sharedSubsets));
-                }
-            }
-            
-        }
-        g.findGroups(edges, rowMap);
-        printf("Groups: %d\n", g.sizeGroups());
-    }
-    g.printGroups();
-    end_time = chrono::high_resolution_clock::now();
-    printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
-
-    if(PRINT) {
+    if(1) {
         cout << "Added " << uniqueSets.size() << " subsets" << endl; 
         cout << "Excluded " << excludedSets.size() - uniqueSets.size() << " subsets" << endl;
         cout << "|X| = " << rowMap.size() << endl;
@@ -110,8 +86,6 @@ void SetCover::columnDomination() {
 
         #pragma omp for schedule(dynamic, 1) nowait
         for(int i=0; i < scp.m-1; i++) {
-            vector<Edge> local_edges;
-            bool ignore = false;
             int nIntersect;
             pair<int, int> setA = indexedSubsets[i];
             int setB;
@@ -127,20 +101,7 @@ void SetCover::columnDomination() {
                     {
                         excludedSets.push_back(setA.first);
                     }
-                    ignore = true;
                     break;
-                }
-
-                // Save the neightbors if the subset A is not excluded
-                if(GROUP_SEG && nIntersect) local_edges.push_back(Edge(setA.first, setB, nIntersect));
-            }
-            
-            if(ignore) {
-                local_edges.clear();
-            } else {
-                #pragma omp critical
-                {
-                    edges.insert(edges.end(), local_edges.begin(), local_edges.end());
                 }
             }
         }
@@ -182,7 +143,7 @@ Set SetCover::unionSets(const int ignoreSet) {
     return C;
 }
 
-bool SetCover::isCovered(const Set& X, const int ignoreSet) {
+bool SetCover::isCovered(const int ignoreSet) {
     Set coveredElements = unionSets(ignoreSet);
     
     for (int i = 0; i < scp.nWX; i++) if ((coveredElements.S[i] & X.S[i]) != X.S[i]) {

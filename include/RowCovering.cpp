@@ -15,7 +15,7 @@ void RowCovering::createRowCovering(const Set &ignSets, const vector<Set> &bF) {
     }
 }
 
-int RowCovering::countIntersection(const vector<int>& B) {
+int RowCovering::countIntersection(const vector<int>& B) const {
     int i = 0, j = 0, count = 0;
     int sizeA = col_covering.size(), sizeB = B.size();
     while (i < sizeA && j < sizeB) {

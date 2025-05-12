@@ -10,18 +10,16 @@
 #include <Edge.h>
 #include <RowCovering.h>
 #include <SCP.h>
-#include <Group.h>
 
 using namespace std;
 
 class SetCover {
 public:
     vector<int> solution;
+    Set X;
     Set U;
     vector<RowCovering> rowMap;
     SCP scp;
-    Group g;
-    vector<Edge> edges;
 
     vector<int> uniqueSets;
     Set excludedSets;
@@ -36,7 +34,7 @@ public:
     void push_back(const int s);
     void erase(const int s);
     Set unionSets(const int ignoreSet = -1);
-    bool isCovered(const Set& X, const int ignoreSet = -1);
+    bool isCovered(const int ignoreSet = -1);
     int size();
     void printRowMap();
 };

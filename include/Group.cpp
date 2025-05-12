@@ -40,14 +40,33 @@ bool UnionFind::unite(const int u, const int v) {
 /*----------Group----------*/
 Group::Group() {}
 
-Group::Group(const bool type, const int n, const int nW) : n(n), nW(nW), type(type) /*0:UNION-FIND, 1:MST*/ {
+Group::Group(const int n, const int nW) : n(n), nW(nW), type(SEG_TYPE) /*0:UNION-FIND, 1:MST*/ {
     uf = UnionFind(n);
     if(type) { // MST
         subtreeW.resize(n);
     }
 }
 
-void Group::findGroups(vector<Edge>& edges, const vector<RowCovering>& rowMap) {
+void Group::createGraph(const vector<RowCovering>& rowMap) {
+    #pragma omp parallel for
+    for(int i=0; i<rowMap.size() - 1; i++) {
+        vector<Edge> local_edges;
+        for(int j=i+1; j<rowMap.size(); j++) {
+            int sharedSubsets = rowMap[i].countIntersection(rowMap[j].col_covering);
+            if(sharedSubsets > 0) {
+                // Add the edges to the group
+                local_edges.push_back(Edge(rowMap[i].row, rowMap[j].row, sharedSubsets));
+            }
+        }  
+        #pragma omp critical
+        {
+            edges.insert(edges.end(), local_edges.begin(), local_edges.end());
+        }
+    }
+}
+
+void Group::findGroups(const vector<RowCovering> rowMap) {
+    createGraph(rowMap);
     if(type) { // MST
         buildMST(edges);
         dfs(mst[0].u, -1);  
@@ -64,7 +83,7 @@ void Group::findGroups(vector<Edge>& edges, const vector<RowCovering>& rowMap) {
 
         unordered_map<int, vector<int>> group_map;
 
-        for (RowCovering e : rowMap) {
+        for (const RowCovering& e : rowMap) {
             int root = uf.find(e.row);
             // printf("root: %d, i: %d\n", root, i);
             group_map[root].push_back(e.row);
@@ -80,7 +99,46 @@ void Group::findGroups(vector<Edge>& edges, const vector<RowCovering>& rowMap) {
         }
     }
 
-    distributeSubsets();
+    groups.resize(U.size());
+}
+
+void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets) {
+    vector<Set> covered = U;
+    int m = bF.size();
+
+    subsetToGroup.resize(m);
+    for(int i=0; i<m; i++) {
+        if(excludedSets.check(i)) continue;
+        int setGrupo = -1;
+        int maxCover = 0;
+        for(int j=0; j<sizeGroups(); j++) {
+            int elemsCover = covered[j].intersectionLength(bF[i]);
+            if(elemsCover > maxCover) {
+                maxCover = elemsCover;
+                setGrupo = j;
+            }
+        }
+
+        if(maxCover == 0) {
+            maxCover = -1;
+            for(int j=0; j<sizeGroups(); j++) {
+                int elemsCover = U[j].intersectionLength(bF[i]);
+                if(elemsCover > maxCover) {
+                    maxCover = elemsCover;
+                    setGrupo = j;
+                }
+            }
+        }
+
+        // printf("Grupo: %d -> Subset %d\n", setGrupo, i);
+        // scp.bF[i].print();
+        // covered[setGrupo].print();
+        // printf("Elems Cover: %d\n", maxCover);
+        // printf("Size U: %d\n", covered[setGrupo].size());
+        groups[setGrupo].push_back(i);
+        subsetToGroup[i] = setGrupo;
+        covered[setGrupo].substract(bF[i]);
+    }
 }
 
 int Group::sizeGroups() {
@@ -91,12 +149,12 @@ void Group::printGroups() {
     for(Set& u : U) {
         u.print();
     }
-    // for(int i=0; i<U.size(); i++) {
-    //     // printf("Group %d: (%ld)", (i+1), groups[i].size());
-    //     for (const int e : groups[i])
-    //         printf("%d ", e);
-    //     printf("\n");
-    // }
+    for(int i=0; i<groups.size(); i++) {
+        // printf("Group %d: (%ld)", (i+1), groups[i].size());
+        for (const int e : groups[i])
+            printf("%d ", e);
+        printf("\n");
+    }
 }
 
 void Group::buildMST(vector<Edge>& edges) {
@@ -164,8 +222,4 @@ void Group::collectGroup(const int u, Set& visited, const int groupId, const int
             continue;
         collectGroup(v, visited, groupId, bestId);
     }
-}
-
-void distributeSubsets() {
-    
 }
