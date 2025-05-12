@@ -40,7 +40,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
     auto start_time = chrono::high_resolution_clock::now();
     Group g = Group(scp.n, scp.nWX);
     g.findGroups(solution.rowMap);
-    g.distributeSubsets(scp.bF, solution.excludedSets);
+    g.distributeSubsets(scp.bF, solution.excludedSets, solution.rowMap);
     printf("Groups: %d\n", g.sizeGroups());
     
     auto end_time = chrono::high_resolution_clock::now();
@@ -94,6 +94,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
         
         if(PRINT) printf("Initial Sol. Cardinality: %d\n", sol.size());
         
+            
         bool improve = true;
         for(int iter=0; iter< MAX_ITER; iter++){
             if(PRINT) {
@@ -122,7 +123,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
     // Eliminar subconjuntos redundantes
     int i=0;
     while(i < solution.size()){
-        if(solution.isCovered(solution.solution[i])) {
+        if(solution.isCovered(solution.U, solution.solution[i])) {
             printf("Redundant subset erased: %d\n", solution.solution[i]);
             solution.erase(i);
         }
@@ -171,7 +172,7 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     // Delete redundant subsets
     i=0;
     while(i < newSol.size()){
-        if(newSol.isCovered(newSol.solution[i])) {
+        if(newSol.isCovered(newSol.X, newSol.solution[i])) {
             if(CHECK) printf("Redundant subset erased: %d\n", newSol.solution[i]);
             newSol.erase(i);
         }
@@ -212,6 +213,7 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
     }
 
     while( !C.rowMap.empty() ) { // Iterate until rowMap is empty
+        C.printRowMap();
         p = 0;
         grade = C.rowMap[p].n_columns;
         bestCoverage = numeric_limits<double>::max();
@@ -239,6 +241,8 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
                 case 3: coverage = 1/(coverage * coverage); break;
                 default: break;
             }
+
+            if(CHECK) printf("Subset %d: %f\n", ss, coverage);
 
             if(coverage < bestCoverage) {
                 bestCoverage = coverage;

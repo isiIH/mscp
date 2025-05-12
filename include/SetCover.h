@@ -34,7 +34,7 @@ public:
     void push_back(const int s);
     void erase(const int s);
     Set unionSets(const int ignoreSet = -1);
-    bool isCovered(const int ignoreSet = -1);
+    bool isCovered(const Set& X, const int ignoreSet = -1);
     int size();
     void printRowMap();
 };

@@ -44,6 +44,7 @@ Group::Group(const int n, const int nW) : n(n), nW(nW), type(SEG_TYPE) /*0:UNION
     uf = UnionFind(n);
     if(type) { // MST
         subtreeW.resize(n);
+        elemToGroup.resize(n);
     }
 }
 
@@ -102,42 +103,47 @@ void Group::findGroups(const vector<RowCovering> rowMap) {
     groups.resize(U.size());
 }
 
-void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets) {
+void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets, const vector<RowCovering>& rowMap) {
     vector<Set> covered = U;
     int m = bF.size();
 
-    subsetToGroup.resize(m);
-    for(int i=0; i<m; i++) {
-        if(excludedSets.check(i)) continue;
-        int setGrupo = -1;
-        int maxCover = 0;
-        for(int j=0; j<sizeGroups(); j++) {
-            int elemsCover = covered[j].intersectionLength(bF[i]);
-            if(elemsCover > maxCover) {
-                maxCover = elemsCover;
-                setGrupo = j;
+    subsetToGroup.resize(m, -1);
+    vector<bool> visited(m, false);
+    for(const RowCovering& row : rowMap) {
+        int bestSet = -1;
+        int bestCover = 0;
+        for(int ss : row.col_covering) {
+            if(visited[ss] && subsetToGroup[ss] == elemToGroup[row.row]) {
+                bestSet = -1;
+                break;
+            }
+            if(visited[ss]) continue;
+
+            int elemsCover = U[elemToGroup[row.row]].intersectionLength(bF[ss]);
+            if(elemsCover > bestCover) {
+                bestCover = elemsCover;
+                bestSet = ss;
             }
         }
 
-        if(maxCover == 0) {
-            maxCover = -1;
-            for(int j=0; j<sizeGroups(); j++) {
-                int elemsCover = U[j].intersectionLength(bF[i]);
-                if(elemsCover > maxCover) {
-                    maxCover = elemsCover;
-                    setGrupo = j;
-                }
+        if(bestSet != -1) {
+            groups[elemToGroup[row.row]].push_back(bestSet);
+            subsetToGroup[bestSet] = elemToGroup[row.row];
+            covered[elemToGroup[row.row]].substract(bF[bestSet]);
+            visited[bestSet] = true;
+        }
+    }
+    
+    for(RowCovering row : rowMap) {
+        if(covered[elemToGroup[row.row]].check(row.row)) {
+           
+            printf("Row %d: Group: %d\n", row.row, elemToGroup[row.row]);
+            for(int ss : row.col_covering) {
+                printf("Subset %d Group %d\n", ss, subsetToGroup[ss]);
+                int elemsCover = U[subsetToGroup[ss]].intersectionLength(bF[ss]);
+                printf("Elems Cover: %d\n", elemsCover);
             }
         }
-
-        // printf("Grupo: %d -> Subset %d\n", setGrupo, i);
-        // scp.bF[i].print();
-        // covered[setGrupo].print();
-        // printf("Elems Cover: %d\n", maxCover);
-        // printf("Size U: %d\n", covered[setGrupo].size());
-        groups[setGrupo].push_back(i);
-        subsetToGroup[i] = setGrupo;
-        covered[setGrupo].substract(bF[i]);
     }
 }
 
@@ -207,13 +213,20 @@ void Group::calcBestCut() {
 
     Set visited(nW);
     U.resize(2, Set(nW));
-    collectGroup(mst[bestId].u, visited, 0, bestId);
-    collectGroup(mst[bestId].v, visited, 1, bestId);
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+        collectGroup(mst[bestId].u, visited, 0, bestId);
+
+        #pragma omp section
+        collectGroup(mst[bestId].v, visited, 1, bestId);
+    }
 }
 
 void Group::collectGroup(const int u, Set& visited, const int groupId, const int bestId) {
     visited.push_back(u);
     U[groupId].push_back(u);
+    elemToGroup[u] = groupId;
     for (auto& [v, eid] : adj[u]) {
         if (visited.check(v)) continue;
         Edge& e = mst[eid];

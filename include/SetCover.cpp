@@ -143,7 +143,7 @@ Set SetCover::unionSets(const int ignoreSet) {
     return C;
 }
 
-bool SetCover::isCovered(const int ignoreSet) {
+bool SetCover::isCovered(const Set& X, const int ignoreSet) {
     Set coveredElements = unionSets(ignoreSet);
     
     for (int i = 0; i < scp.nWX; i++) if ((coveredElements.S[i] & X.S[i]) != X.S[i]) {

@@ -103,7 +103,7 @@ int main(int argc, char** argv) {
         cout << "Time [s]: " << dur_apr/1000000.0 << endl;
     }
 
-    assert(alg.bestSol.isCovered());
+    assert(alg.bestSol.isCovered(alg.bestSol.X));
 
     // Store results
     if(1) {

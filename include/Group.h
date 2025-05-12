@@ -41,6 +41,7 @@ private:
     vector<Set> U;
     vector<vector<int>> groups;
     vector<int> subsetToGroup;
+    vector<int> elemToGroup;
 
     Group();
     Group(const int n, const int nW);
@@ -56,7 +57,7 @@ private:
     void printGroups();
 
     void createGraph(const vector<RowCovering>& rowMap);
-    void distributeSubsets(const vector<Set>& bF, const Set& excludedSets);
+    void distributeSubsets(const vector<Set>& bF, const Set& excludedSets, const vector<RowCovering>& rowMap);
 
 };
 
