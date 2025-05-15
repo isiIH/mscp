@@ -40,7 +40,7 @@ bool UnionFind::unite(const int u, const int v) {
 /*----------Group----------*/
 Group::Group() {}
 
-Group::Group(const int n, const int nW) : n(n), nW(nW), type(SEG_TYPE) /*0:UNION-FIND, 1:MST*/ {
+Group::Group(const int n, const int nW) : nW(nW), type(SEG_TYPE) /*0:UNION-FIND, 1:MST*/ {
     uf = UnionFind(n);
     if(type) { // MST
         subtreeW.resize(n);
@@ -49,11 +49,13 @@ Group::Group(const int n, const int nW) : n(n), nW(nW), type(SEG_TYPE) /*0:UNION
 }
 
 void Group::createGraph(const vector<RowCovering>& rowMap) {
+    int rowSize = rowMap.size();
     #pragma omp parallel for
-    for(int i=0; i<rowMap.size() - 1; i++) {
+    for(int i=0; i<rowSize - 1; i++) {
         vector<Edge> local_edges;
-        for(int j=i+1; j<rowMap.size(); j++) {
-            int sharedSubsets = rowMap[i].countIntersection(rowMap[j].col_covering);
+        int sharedSubsets;
+        for(int j=i+1; j<rowSize; j++) {
+            sharedSubsets = rowMap[i].countIntersection(rowMap[j].col_covering);
             if(sharedSubsets > 0) {
                 // Add the edges to the group
                 local_edges.push_back(Edge(rowMap[i].row, rowMap[j].row, sharedSubsets));
@@ -66,13 +68,15 @@ void Group::createGraph(const vector<RowCovering>& rowMap) {
     }
 }
 
-void Group::findGroups(const vector<RowCovering> rowMap) {
+void Group::findGroups(const vector<RowCovering>& rowMap) {
     createGraph(rowMap);
     if(type) { // MST
-        buildMST(edges);
+        buildMST(rowMap.size(), edges);
         dfs(mst[0].u, -1);  
-        printf("Total edges: %ld\n", edges.size());
-        printf("Total Weight: %d\n", totalWeight);
+        if(CHECK) {
+            printf("Total edges: %ld\n", edges.size());
+            printf("Total Weight: %d\n", totalWeight);
+        }
         calcBestCut();
         
     } else { // UNION-FIND
@@ -92,10 +96,8 @@ void Group::findGroups(const vector<RowCovering> rowMap) {
 
         for (auto &entry : group_map) {
             Set u(nW);
-            for(int e : entry.second) {
+            for(int e : entry.second)
                 u.push_back(e);
-                
-            }
             U.push_back(u);
         }
     }
@@ -104,22 +106,24 @@ void Group::findGroups(const vector<RowCovering> rowMap) {
 }
 
 void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets, const vector<RowCovering>& rowMap) {
-    vector<Set> covered = U;
     int m = bF.size();
-
     subsetToGroup.resize(m, -1);
     vector<bool> visited(m, false);
+
+    int rowGroup, bestSet, bestGroup, bestCover, elemsCover;
+    // Cover each row with the best subset
     for(const RowCovering& row : rowMap) {
-        int bestSet = -1;
-        int bestCover = 0;
-        for(int ss : row.col_covering) {
-            if(visited[ss] && subsetToGroup[ss] == elemToGroup[row.row]) {
+        rowGroup = elemToGroup[row.row];
+        bestSet = -1;
+        bestCover = 0;
+        for(const int ss : row.col_covering) {
+            if(subsetToGroup[ss] == rowGroup) {
                 bestSet = -1;
                 break;
             }
             if(visited[ss]) continue;
 
-            int elemsCover = U[elemToGroup[row.row]].intersectionLength(bF[ss]);
+            elemsCover = U[rowGroup].intersectionLength(bF[ss]);
             if(elemsCover > bestCover) {
                 bestCover = elemsCover;
                 bestSet = ss;
@@ -127,22 +131,29 @@ void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets, co
         }
 
         if(bestSet != -1) {
-            groups[elemToGroup[row.row]].push_back(bestSet);
-            subsetToGroup[bestSet] = elemToGroup[row.row];
-            covered[elemToGroup[row.row]].substract(bF[bestSet]);
+            groups[rowGroup].push_back(bestSet);
+            subsetToGroup[bestSet] = rowGroup;
             visited[bestSet] = true;
         }
     }
-    
-    for(RowCovering row : rowMap) {
-        if(covered[elemToGroup[row.row]].check(row.row)) {
-           
-            printf("Row %d: Group: %d\n", row.row, elemToGroup[row.row]);
-            for(int ss : row.col_covering) {
-                printf("Subset %d Group %d\n", ss, subsetToGroup[ss]);
-                int elemsCover = U[subsetToGroup[ss]].intersectionLength(bF[ss]);
-                printf("Elems Cover: %d\n", elemsCover);
+
+    // Verify if any subset is not assigned to a group
+    for(int i=0; i<m; i++) {
+        if(visited[i] || excludedSets.check(i)) continue;
+
+        bestGroup = -1;
+        bestCover = 0;
+        for(int j=0; j<groups.size(); j++) {
+            elemsCover = U[j].intersectionLength(bF[i]);
+            if(elemsCover > bestCover) {
+                bestCover = elemsCover;
+                bestGroup = j;
             }
+        }
+
+        if(bestGroup != -1) {
+            groups[bestGroup].push_back(i);
+            subsetToGroup[i] = bestGroup;
         }
     }
 }
@@ -152,18 +163,18 @@ int Group::sizeGroups() {
 }
 
 void Group::printGroups() {
-    for(Set& u : U) {
-        u.print();
-    }
     for(int i=0; i<groups.size(); i++) {
-        // printf("Group %d: (%ld)", (i+1), groups[i].size());
+        printf("Group %d: \n", i);
+        U[i].print();
+
+        printf("Subsets: ");
         for (const int e : groups[i])
             printf("%d ", e);
         printf("\n");
     }
 }
 
-void Group::buildMST(vector<Edge>& edges) {
+void Group::buildMST(const int n, vector<Edge>& edges) {
     // Sort edges in descending order
     sort(execution::par, edges.begin(), edges.end());
 
@@ -179,11 +190,7 @@ void Group::buildMST(vector<Edge>& edges) {
         }
     }
 
-    // for(const Edge& e : mst) {
-    //     printf("(%d <- (%d) -> %d)\n", e.u+1, e.w, e.v+1);
-    // }
-
-    printf("MST size: %ld\n", mst.size());
+    if(CHECK) printf("MST size: %ld\n", mst.size());
 
     edgeW.resize(mst.size());
 }
@@ -208,8 +215,10 @@ void Group::calcBestCut() {
             bestId = i;
         }
     }
-    printf("Best Diff: %d\n", bestDiff);
-    printf("Best Id: %d\n", bestId);
+    if(CHECK) {
+        printf("Best Diff: %d\n", bestDiff);
+        printf("Best Id: %d\n", bestId);
+    }
 
     Set visited(nW);
     U.resize(2, Set(nW));

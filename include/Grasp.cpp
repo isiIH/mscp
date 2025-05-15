@@ -38,13 +38,13 @@ SetCover Grasp::search() {
 void Grasp::searchPerGroup(SetCover& solution) {
     // Universe Segmentation
     auto start_time = chrono::high_resolution_clock::now();
-    Group g = Group(scp.n, scp.nWX);
+    g = Group(scp.n, scp.nWX);
     g.findGroups(solution.rowMap);
     g.distributeSubsets(scp.bF, solution.excludedSets, solution.rowMap);
-    printf("Groups: %d\n", g.sizeGroups());
-    
+    if(PRINT) printf("Groups: %d\n", g.sizeGroups());
+    if(CHECK) g.printGroups();
     auto end_time = chrono::high_resolution_clock::now();
-    printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     int numGroups = g.sizeGroups();
     vector<vector<int>> groupSolutions(numGroups);
@@ -82,7 +82,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
             );
         }
 
-        if(1) {
+        if(CHECK) {
             printf("|U| = %d\n", groupSol.X.size());
             printf("|rowMap| = %ld\n", groupSol.rowMap.size());
         }
@@ -105,13 +105,13 @@ void Grasp::searchPerGroup(SetCover& solution) {
 
         }
         
-        printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), groupSol.X.size(), group.size(), sol.solution.size());
+        if(PRINT) printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), groupSol.X.size(), group.size(), sol.solution.size());
         
         groupSolutions[ng] = sol.solution;
 
         auto end_time = chrono::high_resolution_clock::now();
 
-        printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+        if(PRINT) printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     }
 
@@ -124,12 +124,11 @@ void Grasp::searchPerGroup(SetCover& solution) {
     int i=0;
     while(i < solution.size()){
         if(solution.isCovered(solution.U, solution.solution[i])) {
-            printf("Redundant subset erased: %d\n", solution.solution[i]);
+            if(CHECK) printf("Redundant subset erased: %d\n", solution.solution[i]);
             solution.erase(i);
         }
         else i++;
     }
-    printf("Best Sol: %d\n", solution.size());
 }
 
 void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool& improve) {

@@ -23,7 +23,7 @@ int RowCovering::countIntersection(const vector<int>& B) const {
             i++;
         } else if (B[j] < col_covering[i]) {
             j++;
-        } else { // col_covering[i] == B[j]
+        } else {
             count++; i++; j++;
         }
     }

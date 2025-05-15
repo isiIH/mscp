@@ -28,7 +28,7 @@ public:
 
 class Group {
 private:
-    int n, nW;
+    int nW;
     bool type; // 0:UNION-FIND, 1:MST
     UnionFind uf;
     vector<Edge> edges;
@@ -37,7 +37,7 @@ private:
     vector<int> edgeW;
     map<int, vector<pair<int, int>>> adj;
     int totalWeight = 0;
-    public:
+public:
     vector<Set> U;
     vector<vector<int>> groups;
     vector<int> subsetToGroup;
@@ -46,12 +46,12 @@ private:
     Group();
     Group(const int n, const int nW);
     
-    void buildMST(vector<Edge>& edges);
+    void buildMST(const int n, vector<Edge>& edges);
     void dfs(const int node, const int parent);
     void calcBestCut();
     void collectGroup(const int u, Set& visited, const int groupId, const int bestId);
 
-    void findGroups(const vector<RowCovering> rowMap);
+    void findGroups(const vector<RowCovering>& rowMap);
 
     int sizeGroups();
     void printGroups();

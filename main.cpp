@@ -108,11 +108,11 @@ int main(int argc, char** argv) {
     // Store results
     if(1) {
         cout << argv[1] << " "
+            << argv[2] << " "
             << scp.n << " "
             << scp.m << " "
             << alg.bestSol.uniqueSets.size() << " "
             << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
-            << GROUP_SEG << " "
             << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
             << (dur_greedyExh / 1000000.0) << " "
             << greedySol.size() << " "
@@ -123,17 +123,16 @@ int main(int argc, char** argv) {
     }
     if(TEST) {
         outFile << argv[1] << " "
+            << argv[2] << " "
             << scp.n << " "
             << scp.m << " "
             << alg.bestSol.uniqueSets.size() << " "
             << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
-            << GROUP_SEG << " "
             << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
             << (dur_greedyExh / 1000000.0) << " "
             << greedySol.size() << " "
             << (dur_apr / 1000000.0) << " "
             << alg.bestSol.size() << " "
-            << argv[2]
             << endl;
         outFile.close();
     }
