@@ -44,7 +44,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
     if(PRINT) printf("Groups: %d\n", g.sizeGroups());
     if(CHECK) g.printGroups();
     auto end_time = chrono::high_resolution_clock::now();
-    if(PRINT) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(1) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     int numGroups = g.sizeGroups();
     vector<vector<int>> groupSolutions(numGroups);

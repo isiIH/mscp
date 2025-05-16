@@ -3,7 +3,7 @@
 
 #define PRINT 0
 #define CHECK 0
-#define TEST 0
+#define TEST 1
 
 #define RCL 0.7
 #define MAX_ITER 200

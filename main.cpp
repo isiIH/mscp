@@ -106,21 +106,19 @@ int main(int argc, char** argv) {
     assert(alg.bestSol.isCovered(alg.bestSol.X));
 
     // Store results
-    if(1) {
-        cout << argv[1] << " "
-            << argv[2] << " "
-            << scp.n << " "
-            << scp.m << " "
-            << alg.bestSol.uniqueSets.size() << " "
-            << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
-            << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
-            << (dur_greedyExh / 1000000.0) << " "
-            << greedySol.size() << " "
-            << (dur_apr / 1000000.0) << " "
-            << alg.bestSol.size() << " "
-            << argv[2]
-            << endl;
-    }
+    cout << argv[1] << " "
+        << argv[2] << " "
+        << scp.n << " "
+        << scp.m << " "
+        << alg.bestSol.uniqueSets.size() << " "
+        << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
+        << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
+        << (GROUP_SEG ? SEG_TYPE ? "MST" : "UF" : "") << " "
+        << (dur_greedyExh / 1000000.0) << " "
+        << greedySol.size() << " "
+        << (dur_apr / 1000000.0) << " "
+        << alg.bestSol.size() << " "
+        << endl;
     if(TEST) {
         outFile << argv[1] << " "
             << argv[2] << " "
@@ -129,6 +127,7 @@ int main(int argc, char** argv) {
             << alg.bestSol.uniqueSets.size() << " "
             << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
             << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
+            << (GROUP_SEG ? SEG_TYPE ? "MST" : "UF" : "nan") << " "
             << (dur_greedyExh / 1000000.0) << " "
             << greedySol.size() << " "
             << (dur_apr / 1000000.0) << " "
