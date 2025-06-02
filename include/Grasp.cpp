@@ -121,14 +121,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
     }
     
     // Eliminar subconjuntos redundantes
-    int i=0;
-    while(i < solution.size()){
-        if(solution.isCovered(solution.U, solution.solution[i])) {
-            if(CHECK) printf("Redundant subset erased: %d\n", solution.solution[i]);
-            solution.erase(i);
-        }
-        else i++;
-    }
+    solution.redundantSets();
 }
 
 void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool& improve) {
@@ -169,14 +162,7 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     randSuccintSC(newSol, improve);
 
     // Delete redundant subsets
-    i=0;
-    while(i < newSol.size()){
-        if(newSol.isCovered(newSol.X, newSol.solution[i])) {
-            if(CHECK) printf("Redundant subset erased: %d\n", newSol.solution[i]);
-            newSol.erase(i);
-        }
-        else i++;
-    }
+    newSol.redundantSets();
 
     // Evaluate and Upgrade solution
     if(newSol.size() < solution.size()) {
@@ -191,10 +177,8 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
 
 void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
     if(CHECK) printf("------------------------------------\n");
-    // int function = rand() % 3;
-    int function = 0;
+    int function = rand() % 4;
     set<int> subsets;
-    // vector<int> subsets;
     double coverage, bestCoverage;
     int grade, p, bestSet;
 
@@ -212,13 +196,11 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
     }
 
     while( !C.rowMap.empty() ) { // Iterate until rowMap is empty
-        C.printRowMap();
         p = 0;
         grade = C.rowMap[p].n_columns;
         bestCoverage = numeric_limits<double>::max();
         
         // Collect all the element's subsets of grade K
-        // subsets = C.rowMap[p].col_covering;
         while(p < C.rowMap.size() && C.rowMap[p].n_columns == grade) {
             for(int ss : C.rowMap[p].col_covering) subsets.insert(ss);
             p++;

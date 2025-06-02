@@ -33,8 +33,9 @@ public:
     void updateRowMap(const int setIndex);
     void push_back(const int s);
     void erase(const int s);
-    Set unionSets(const int ignoreSet = -1);
-    bool isCovered(const Set& X, const int ignoreSet = -1);
+    Set unionSets();
+    bool isCovered();
+    void redundantSets();
     int size();
     void printRowMap();
 };

@@ -132,24 +132,51 @@ void SetCover::erase(const int s) {
     solution.erase(solution.begin() + s);
 }
 
-Set SetCover::unionSets(const int ignoreSet) {
+Set SetCover::unionSets() {
     Set C(scp.nWX);
     for(const int idS : solution) {
-        if(idS != ignoreSet) {
-            for(int i=0; i<scp.nWX; i++)
-                C.S[i] |= scp.bF[idS].S[i];
-        }
+        for(int i=0; i<scp.nWX; i++)
+            C.S[i] |= scp.bF[idS].S[i];
     }
     return C;
 }
 
-bool SetCover::isCovered(const Set& X, const int ignoreSet) {
-    Set coveredElements = unionSets(ignoreSet);
+bool SetCover::isCovered() {
+    Set coveredElements = unionSets();
     
     for (int i = 0; i < scp.nWX; i++) if ((coveredElements.S[i] & X.S[i]) != X.S[i]) {
         return false;
     }
     return true;
+}
+
+void SetCover::redundantSets() {
+    vector<int> elemCover(scp.n, 0);
+    for(int ss : solution) {
+        for(int e : scp.F[ss]) {
+            if(X.check((e-1))) elemCover[(e-1)]++;
+        }
+    }
+
+    bool isRedundant;
+    int i = 0;
+    while(i < solution.size()) {
+        isRedundant = true;
+        for(int e : scp.F[solution[i]]) {
+            if(X.check((e-1)) && elemCover[(e-1)] == 1) {
+                isRedundant = false;
+                break;
+            }
+        }
+
+        if(isRedundant) {
+            if(CHECK) printf("Redundant subset erased: %d\n", solution[i]);
+            for(int e : scp.F[solution[i]]) {
+                if(X.check((e-1))) elemCover[(e-1)]--;
+            }
+            erase(i);
+        } else i++;
+    }
 }
 
 int SetCover::size() {

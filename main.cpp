@@ -14,7 +14,7 @@ using namespace std;
 vector<int> greedy(const SCP &scp);
 
 int main(int argc, char** argv) {
-    if(argc !=3){
+    if(argc != 3){
 		cout << "./opt <filename> <nt>" << endl;
 		exit(EXIT_FAILURE);
 	}
@@ -103,24 +103,22 @@ int main(int argc, char** argv) {
         cout << "Time [s]: " << dur_apr/1000000.0 << endl;
     }
 
-    assert(alg.bestSol.isCovered(alg.bestSol.X));
+    assert(alg.bestSol.isCovered());
 
     // Store results
-    if(1) {
-        cout << argv[1] << " "
-            << argv[2] << " "
-            << scp.n << " "
-            << scp.m << " "
-            << alg.bestSol.uniqueSets.size() << " "
-            << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
-            << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
-            << (dur_greedyExh / 1000000.0) << " "
-            << greedySol.size() << " "
-            << (dur_apr / 1000000.0) << " "
-            << alg.bestSol.size() << " "
-            << argv[2]
-            << endl;
-    }
+    cout << argv[1] << " "
+        << argv[2] << " "
+        << scp.n << " "
+        << scp.m << " "
+        << alg.bestSol.uniqueSets.size() << " "
+        << (alg.bestSol.excludedSets.size() - alg.bestSol.uniqueSets.size()) << " "
+        << (GROUP_SEG ? alg.g.sizeGroups() : 0) << " "
+        << (dur_greedyExh / 1000000.0) << " "
+        << greedySol.size() << " "
+        << (dur_apr / 1000000.0) << " "
+        << alg.bestSol.size() << " "
+        << argv[2]
+        << endl;
     if(TEST) {
         outFile << argv[1] << " "
             << argv[2] << " "
