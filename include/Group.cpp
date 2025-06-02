@@ -42,9 +42,9 @@ Group::Group() {}
 
 Group::Group(const int n, const int nW) : nW(nW), type(SEG_TYPE) /*0:UNION-FIND, 1:MST*/ {
     uf = UnionFind(n);
+    elemToGroup.resize(n);
     if(type) { // MST
         subtreeW.resize(n);
-        elemToGroup.resize(n);
     }
 }
 
@@ -80,7 +80,6 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
         calcBestCut();
         
     } else { // UNION-FIND
-        #pragma omp parallel for
         for(const Edge& e : edges) {
             // printf("Edge: %d %d %d\n", e.u, e.v, e.w);
             uf.unite(e.u, e.v);
@@ -94,11 +93,15 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
             group_map[root].push_back(e.row);
         }
 
+        int groupId = 0;
         for (auto &entry : group_map) {
             Set u(nW);
-            for(int e : entry.second)
+            for(int e : entry.second) {
                 u.push_back(e);
+                elemToGroup[e] = groupId;
+            }
             U.push_back(u);
+            groupId++;
         }
     }
 
