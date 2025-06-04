@@ -18,3 +18,5 @@ grasp: main.cpp
 clean:
 	@echo " [CLN] Removing binary files"
 	@rm -f $(BINS)
+
+# for ((i=0; i<=5; i++)); do ./grasp scp $((2**i)); done;

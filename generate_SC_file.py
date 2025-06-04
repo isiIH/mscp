@@ -18,7 +18,7 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
         n_subsets = random.randint(1, min(left_subsets,  m // num_groups))
         if(i == len(groups) - 1):
             n_subsets = left_subsets
-        print(f"Group {i}: {len(group)} elements, {n_subsets} subsets")
+        # print(f"Group {i}: {len(group)} elements, {n_subsets} subsets")
 
         # Add every element inside a random subset
         for e in group:
@@ -32,7 +32,7 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
             if len(subset) == 0:
                 subset += random.sample(group, random.randint(1, len(group) // 2 + 1))
             subset.sort()
-            print(f"({j}): {len(subset)} - {subset}")
+            # print(f"({j}): {len(subset)} - {subset}")
 
         left_subsets -= n_subsets
 
@@ -45,4 +45,4 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
 
     print(f"Dataset guardado en {filename}")
 
-generate_set_cover_file("test/ex10.txt", n=500, m=1000, num_groups=3)
+generate_set_cover_file("test/test01.txt", n=5000, m=10000, num_groups=4)

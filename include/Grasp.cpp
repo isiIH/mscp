@@ -26,7 +26,7 @@ SetCover Grasp::search() {
         
         solution = newSol;
         auto end_time = chrono::high_resolution_clock::now();
-        printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+        if(PRINT) printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
     }
 
     // Add unique sets (grade 1) to the solution
@@ -44,7 +44,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
     if(PRINT) printf("Groups: %d\n", g.sizeGroups());
     if(CHECK) g.printGroups();
     auto end_time = chrono::high_resolution_clock::now();
-    if(1) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     int numGroups = g.sizeGroups();
     vector<vector<int>> groupSolutions(numGroups);
@@ -183,7 +183,7 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
     int grade, p, bestSet;
 
     double rand_subset, total = 0;
-    vector<pair<int, int>> subsets_coverage;
+    vector<pair<int, double>> subsets_coverage;
 
     if(PRINT) {
         switch(function) {
@@ -235,8 +235,8 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
             }
         }
         
-        if(!improve && rand() % 25 == 0) {
-            if(CHECK) printf("random set");;
+        if(!improve  && rand() % 25 == 0) {
+            if(CHECK) printf("random set\n");
             rand_subset = ((double) rand()) / RAND_MAX;
             for(int i=0; i<subsets_coverage.size(); i++) {
                 if(rand_subset <= subsets_coverage[i].second / total) {
@@ -244,8 +244,6 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
                     break;
                 }
             }
-            subsets_coverage.clear();
-            total = 0;
         }
 
         // Erase element covered by the best candidate and add to the solution
@@ -261,5 +259,7 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
         }
 
         subsets.clear();
+        subsets_coverage.clear();
+        total = 0;
     }
 }
