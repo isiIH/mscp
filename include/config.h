@@ -1,11 +1,11 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
-#define PRINT 0
+#define PRINT 1
 #define CHECK 0
-#define TEST 1
+#define TEST 0
 
-#define RCL 0.7
+#define MAX_RM 0.5
 #define MAX_ITER 300
 
 #define GROUP_SEG 0

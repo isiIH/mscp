@@ -11,7 +11,7 @@ SetCover Grasp::search() {
         auto start_time = chrono::high_resolution_clock::now();
         // Initial solution
         SetCover newSol = solution;
-        randSuccintSC(newSol, false);
+        randSuccintSC(newSol, true);
         
         if(PRINT) printf("Initial Sol. Cardinality: %d\n", newSol.size());
         
@@ -129,7 +129,7 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     int i, col;
     Set unionSC;
     SetCover newSol = solution;
-    int nRemove = rand() % (int)ceil((newSol.size()) * RCL) + 1;
+    int nRemove = rand() % (int)ceil((newSol.size()) * MAX_RM) + 1;
 
     if(PRINT) printf("%d subsets deleted\n", nRemove);
 
@@ -177,7 +177,7 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
 
 void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
     if(CHECK) printf("------------------------------------\n");
-    int function = rand() % 4;
+    int function;
     set<int> subsets;
     double coverage, bestCoverage;
     int grade, p, bestSet;
@@ -185,17 +185,17 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
     double rand_subset, total = 0;
     vector<pair<int, double>> subsets_coverage;
 
-    if(PRINT) {
-        switch(function) {
-            case 0: printf("Using function (1/rowsCovered)\n"); break;
-            case 1: printf("Using function (1/sqrt(rowsCovered))\n");; break;
-            case 2: printf("Using function (1/log(1 + rowsCovered))\n"); break;
-            case 3: printf("Using function (1/rowsCovered²)\n"); break;
-            default: break;
-        }
-    }
-
     while( !C.rowMap.empty() ) { // Iterate until rowMap is empty
+        function = rand() % 4;
+        if(CHECK) {
+            switch(function) {
+                case 0: printf("Using function (1/rowsCovered)\n"); break;
+                case 1: printf("Using function (1/sqrt(rowsCovered))\n");; break;
+                case 2: printf("Using function (1/log(1 + rowsCovered))\n"); break;
+                case 3: printf("Using function (1/rowsCovered²)\n"); break;
+                default: break;
+            }
+        }
         p = 0;
         grade = C.rowMap[p].n_columns;
         bestCoverage = numeric_limits<double>::max();
@@ -231,15 +231,26 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
             }
             if(!improve) {
                 total += coverage;
-                subsets_coverage.push_back(make_pair(ss, total));
+                subsets_coverage.push_back(make_pair(ss, coverage));
             }
         }
         
-        if(!improve  && rand() % 25 == 0) {
+        if(!improve && rand() % 25 == 0) {
             if(CHECK) printf("random set\n");
             rand_subset = ((double) rand()) / RAND_MAX;
+
+            double total_prob = 0;
             for(int i=0; i<subsets_coverage.size(); i++) {
-                if(rand_subset <= subsets_coverage[i].second / total) {
+                subsets_coverage[i].second = 1 - (subsets_coverage[i].second/total);
+                total_prob += subsets_coverage[i].second;
+            }
+            total = 0;
+            for(int i=0; i<subsets_coverage.size(); i++) {
+                total += subsets_coverage[i].second / total_prob;
+                subsets_coverage[i].second = total;
+            }
+            for(int i=0; i<subsets_coverage.size(); i++) {
+                if(rand_subset <= subsets_coverage[i].second) {
                     bestSet = subsets_coverage[i].first;
                     break;
                 }
