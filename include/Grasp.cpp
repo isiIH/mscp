@@ -11,7 +11,7 @@ SetCover Grasp::search() {
         auto start_time = chrono::high_resolution_clock::now();
         // Initial solution
         SetCover newSol = solution;
-        randSuccintSC(newSol, true);
+        randSuccintSC(newSol, false);
         
         if(PRINT) printf("Initial Sol. Cardinality: %d\n", newSol.size());
         
@@ -230,8 +230,8 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
                 bestSet = ss;
             }
             if(!improve) {
-                total += coverage;
-                subsets_coverage.push_back(make_pair(ss, coverage));
+                subsets_coverage.push_back(make_pair(ss, (1 - coverage)));
+                total += (1 - coverage);
             }
         }
         
@@ -239,16 +239,16 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve) {
             if(CHECK) printf("random set\n");
             rand_subset = ((double) rand()) / RAND_MAX;
 
-            double total_prob = 0;
             for(int i=0; i<subsets_coverage.size(); i++) {
-                subsets_coverage[i].second = 1 - (subsets_coverage[i].second/total);
-                total_prob += subsets_coverage[i].second;
+                subsets_coverage[i].second = subsets_coverage[i].second / total;
+                // printf("subset %d coverage: %f\n", subsets_coverage[i].first, subsets_coverage[i].second);
             }
             total = 0;
             for(int i=0; i<subsets_coverage.size(); i++) {
-                total += subsets_coverage[i].second / total_prob;
+                total += subsets_coverage[i].second;
                 subsets_coverage[i].second = total;
             }
+            // printf("total prob: %f \n", total);
             for(int i=0; i<subsets_coverage.size(); i++) {
                 if(rand_subset <= subsets_coverage[i].second) {
                     bestSet = subsets_coverage[i].first;

@@ -38,6 +38,8 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
 
     assert(sum([len(group) for group in groups]) == n)
 
+    folder = "test/"
+    filename = folder + filename + "_" + str(m) + "_" + str(num_groups) + ".txt"
     with open(filename, "w") as file:
         file.write(f"{n} {m}\n")
         for subset in subsets:
@@ -45,4 +47,4 @@ def generate_set_cover_file(filename, n=500, m=200, num_groups=2):
 
     print(f"Dataset guardado en {filename}")
 
-generate_set_cover_file("test/test01.txt", n=5000, m=10000, num_groups=4)
+generate_set_cover_file("test01", n=500, m=100, num_groups=4)

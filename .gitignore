@@ -1,7 +1,8 @@
+test/
 *.pdf
-*.excalidraw
 results.txt
 grasp
-graspCPU
 exp.ipynb
 mscpenv/
+.vscode/
+run_test.sh
