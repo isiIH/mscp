@@ -83,7 +83,6 @@ void SetCover::columnDomination() {
 
     #pragma omp parallel shared(indexedSubsets) 
     {
-
         #pragma omp for schedule(dynamic, 1) nowait
         for(int i=0; i < scp.m-1; i++) {
             int nIntersect;
@@ -97,12 +96,6 @@ void SetCover::columnDomination() {
 
                 // If the intersection is the same size of the smallest subset 
                 if(nIntersect == setA.second) {
-                    // printf("subset A:\n");
-                    // for(int e : scp.F[setA.first]) printf("%d ", e);
-                    // printf("\n");
-                    // printf("subset B:\n");
-                    // for(int e : scp.F[setB]) printf("%d ", e);
-                    // printf("\n");
                     #pragma omp critical
                     {
                         excludedSets.push_back(setA.first);

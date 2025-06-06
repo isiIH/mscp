@@ -69,6 +69,11 @@ void Group::createGraph(const vector<RowCovering>& rowMap) {
 }
 
 void Group::findGroups(const vector<RowCovering>& rowMap) {
+    if(PRINT) {
+        cout << "------------------------" << endl;
+        cout << "Executing FindGroups..." << endl;
+        cout << "------------------------" << endl;
+    }
     createGraph(rowMap);
     if(type) { // MST
         buildMST(rowMap.size(), edges);
