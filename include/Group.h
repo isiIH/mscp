@@ -37,11 +37,12 @@ private:
     vector<int> edgeW;
     map<int, vector<pair<int, int>>> adj;
     int totalWeight = 0;
+    vector<int> elemToGroup;
 public:
     vector<Set> U;
     vector<vector<int>> groups;
     vector<int> subsetToGroup;
-    vector<int> elemToGroup;
+    vector<vector<RowCovering>> groupMap;
 
     Group();
     Group(const int n, const int nW);

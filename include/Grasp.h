@@ -9,6 +9,7 @@
 #include <chrono>
 #include <omp.h>
 #include <assert.h>
+#include <random>
 
 #include <config.h>
 #include <Set.h>
@@ -28,8 +29,8 @@ public:
 
     SetCover search();
     void searchPerGroup(SetCover& solution);
-    void updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool &improve);
-    void randSuccintSC(SetCover &C, const bool& improve);
+    void updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool &improve, mt19937& gen);
+    void randSuccintSC(SetCover &C, const bool& improve, mt19937& gen);
 };
 
 #endif

@@ -19,13 +19,15 @@ public:
     Set X;
     Set U;
     vector<RowCovering> rowMap;
-    SCP scp;
+    SCP* scp;
 
     vector<int> uniqueSets;
     Set excludedSets;
 
     SetCover();
     SetCover(SCP &scp);
+    SetCover(const SetCover& other);
+    SetCover& operator=(const SetCover& other);
 
     void preprocess();
     void rowReduction();

@@ -21,6 +21,8 @@ public:
 
     SCP();
     SCP(const string filename);
+    SCP(const SCP& other);
+    SCP& operator=(const SCP& other);
 
     void readFile(const string filename);
     void readFileScp(const string filename);

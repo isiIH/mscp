@@ -17,10 +17,21 @@ Set::~Set() {
 }
 
 Set& Set::operator=(const Set &X) {
-    if(this != &X) {
-        Set temp(X);
-        swap(S, temp.S);
-        swap(nW, temp.nW);
+    if (this == &X) {
+        return *this;
+    }
+
+    if (S != nullptr) {
+        delete[] S;
+        S = nullptr;
+    }
+
+    nW = X.nW;
+    if (nW > 0) {
+        S = new unsigned long[nW];
+        std::copy(X.S, X.S + nW, S);
+    } else {
+        S = nullptr;
     }
 
     return *this;
@@ -47,7 +58,7 @@ void Set::clear() {
     for(int i=0; i<nW; i++) S[i] = 0;
 }
 
-int Set::intersectionLength(const Set &B) {
+int Set::intersectionLength(const Set &B) const {
     int cont = 0;
     for(int i=0; i<nW; i++) cont += __builtin_popcountl(S[i] & B.S[i]);
     return cont;

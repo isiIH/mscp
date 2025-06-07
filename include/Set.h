@@ -25,7 +25,7 @@ public:
     void erase(const int i);
     bool check(const int i) const;
     void clear();
-    int intersectionLength(const Set &B);
+    int intersectionLength(const Set &B) const;
     void add(const Set& B);
     void substract(const Set &B);
     int size() const;

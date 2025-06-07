@@ -6,6 +6,28 @@ SCP::SCP(const string filename) {
     readFile(filename);
 }
 
+SCP::SCP(const SCP& other) :
+    X(other.X),
+    F(other.F),
+    bF(other.bF),
+    n(other.n),
+    m(other.m),
+    nWX(other.nWX),
+    nWF(other.nWF) {}
+
+SCP& SCP::operator=(const SCP& other) {
+    if (this != &other) {
+        X = other.X;
+        F = other.F;
+        bF = other.bF;
+        n = other.n;
+        m = other.m;
+        nWX = other.nWX;
+        nWF = other.nWF;
+    }
+    return *this;
+}
+
 void SCP::readFile(const string filename) {
     if (filename.substr(0,3) == "scp") readFileScp(filename);
     else readFilePartition(filename);

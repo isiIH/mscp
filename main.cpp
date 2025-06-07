@@ -21,9 +21,6 @@ int main(int argc, char** argv) {
 
     omp_set_num_threads(atoi(argv[2]));
 
-    // Randomize the result
-    srand(time(0));
-
     // Read file
     SCP scp = SCP(argv[1]);
     string outputFilename = "results.txt";

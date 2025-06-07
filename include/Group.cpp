@@ -111,6 +111,7 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
     }
 
     groups.resize(U.size());
+    groupMap.resize(U.size());
 }
 
 void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets, const vector<RowCovering>& rowMap) {
@@ -122,6 +123,7 @@ void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets, co
     // Cover each row with the best subset
     for(const RowCovering& row : rowMap) {
         rowGroup = elemToGroup[row.row];
+        groupMap[rowGroup].push_back(row);
         bestSet = -1;
         bestCover = 0;
         for(const int ss : row.col_covering) {
@@ -162,6 +164,21 @@ void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets, co
         if(bestGroup != -1) {
             groups[bestGroup].push_back(i);
             subsetToGroup[i] = bestGroup;
+        }
+    }
+
+    // Erase subsets that are not assigned to any group
+    #pragma omp parallel for
+    for(vector<RowCovering>& rowMap : groupMap) {
+        for(RowCovering& row : rowMap) {
+            rowGroup = elemToGroup[row.row];
+            vector<int>& cols = row.col_covering;
+            cols.erase(
+                remove_if(cols.begin(), cols.end(), [&](int subsetIdx) {
+                    return subsetToGroup[subsetIdx] != rowGroup;
+                }),
+                cols.end()
+            );
         }
     }
 }
