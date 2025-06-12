@@ -81,6 +81,11 @@ void SetCover::rowReduction() {
 
         excludedSets.push_back(setIndex);
     }
+
+    // Check if a subset don't cover any row
+    for(int i=0; i<scp->m; i++) {
+        if(!excludedSets.check(i) && U.intersectionLength(scp->bF[i]) == 0) excludedSets.push_back(i);
+    }
 }
 
 void SetCover::columnDomination() {

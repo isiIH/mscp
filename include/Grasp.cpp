@@ -39,9 +39,12 @@ SetCover Grasp::search() {
 void Grasp::searchPerGroup(SetCover& solution) {
     // Universe Segmentation
     auto start_time = chrono::high_resolution_clock::now();
-    g = Group(scp.n, scp.nWX);
+    g = Group(scp.n, scp);
     g.findGroups(solution.rowMap);
-    g.distributeSubsets(scp.bF, solution.excludedSets, solution.rowMap);
+    auto a = chrono::high_resolution_clock::now();
+    g.distributeSubsets(solution.excludedSets, solution.rowMap);
+    auto b = chrono::high_resolution_clock::now();
+    if(1) printf("Time distribute: %f\n", chrono::duration_cast<chrono::microseconds>(b - a).count()/1000000.0);
     if(PRINT) printf("Groups: %d\n", g.sizeGroups());
     if(CHECK) g.printGroups();
     auto end_time = chrono::high_resolution_clock::now();
@@ -56,12 +59,11 @@ void Grasp::searchPerGroup(SetCover& solution) {
         auto start_time = chrono::high_resolution_clock::now();
         SetCover groupSol;
         groupSol.scp = &scp;
-        vector<int> group = g.groups[ng];
         // if the group is empty or with one subset, skip it
-        if(group.size() < 2) {
-            groupSolutions[ng] = group;
+        if(g.groups[ng].size() < 2) {
+            groupSolutions[ng] = g.groups[ng];
             auto end_time = chrono::high_resolution_clock::now();
-            if(1) printf("Time Preprocces Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+            // if(1) printf("Time Preprocces Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
         }
         else {
             // Copy data of each group
@@ -72,14 +74,16 @@ void Grasp::searchPerGroup(SetCover& solution) {
 
             auto end_time = chrono::high_resolution_clock::now();
 
-            if(1) printf("Time Preprocces Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
-
+            
+            // if(1) printf("Time Preprocces Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+            
             // Initial solution
             start_time = chrono::high_resolution_clock::now();
             random_device rd;
             mt19937 gen(rd() + omp_get_thread_num());
             randSuccintSC(groupSol, false, gen);
             end_time = chrono::high_resolution_clock::now();
+            // printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), groupSol.X.size(), g.groups[ng].size(), groupSol.solution.size());
             // if(1) printf("Time randInit Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
             
             if(PRINT) printf("Initial Sol. Cardinality: %d\n", groupSol.size());
@@ -102,7 +106,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
             // if(1) printf("Time Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
         }
         
-        // if(1) printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), groupSol.X.size(), group.size(), groupSol.solution.size());
+        // if(1) printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), groupSol.X.size(), g.groups[ng].size(), groupSol.solution.size());
 
     }
     end_time = chrono::high_resolution_clock::now();

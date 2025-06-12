@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
     omp_set_num_threads(atoi(argv[2]));
 
     // Read file
+    printf("Solving with %d threads\n", atoi(argv[2]));
     SCP scp = SCP(argv[1]);
     string outputFilename = "results.txt";
     ofstream outFile(outputFilename, ios::app);

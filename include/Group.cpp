@@ -40,9 +40,9 @@ bool UnionFind::unite(const int u, const int v) {
 /*----------Group----------*/
 Group::Group() {}
 
-Group::Group(const int n, const int nW) : nW(nW), type(SEG_TYPE) /*0:UNION-FIND, 1:MST*/ {
+Group::Group(const int n, SCP &scp) : scp(&scp), type(SEG_TYPE) /*0:UNION-FIND, 1:MST*/ {
     uf = UnionFind(n);
-    elemToGroup.resize(n);
+    elemToGroup.resize(n, -1);
     if(type) { // MST
         subtreeW.resize(n);
     }
@@ -74,7 +74,10 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
         cout << "Executing FindGroups..." << endl;
         cout << "------------------------" << endl;
     }
+    auto start_time = chrono::high_resolution_clock::now();
     createGraph(rowMap);
+    auto end_time = chrono::high_resolution_clock::now();
+    if(1) printf("Time createGraph: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
     if(type) { // MST
         buildMST(rowMap.size(), edges);
         dfs(mst[0].u, -1);  
@@ -85,6 +88,7 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
         calcBestCut();
         
     } else { // UNION-FIND
+        auto start_time = chrono::high_resolution_clock::now();
         for(const Edge& e : edges) {
             // printf("Edge: %d %d %d\n", e.u, e.v, e.w);
             uf.unite(e.u, e.v);
@@ -100,7 +104,7 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
 
         int groupId = 0;
         for (auto &entry : group_map) {
-            Set u(nW);
+            Set u(scp->nWX);
             for(int e : entry.second) {
                 u.push_back(e);
                 elemToGroup[e] = groupId;
@@ -108,77 +112,95 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
             U.push_back(u);
             groupId++;
         }
+        auto end_time = chrono::high_resolution_clock::now();
+        if(1) printf("Time union-find: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
     }
 
     groups.resize(U.size());
     groupMap.resize(U.size());
 }
 
-void Group::distributeSubsets(const vector<Set>& bF, const Set& excludedSets, const vector<RowCovering>& rowMap) {
-    int m = bF.size();
-    subsetToGroup.resize(m, -1);
-    vector<bool> visited(m, false);
+void Group::distributeSubsets(const Set& excludedSets, const vector<RowCovering>& rowMap) {
+    if(type) {
+        subsetToGroup.resize(scp->m, -1);
+        vector<bool> visited(scp->m, false);
 
-    int rowGroup, bestSet, bestGroup, bestCover, elemsCover;
-    // Cover each row with the best subset
-    for(const RowCovering& row : rowMap) {
-        rowGroup = elemToGroup[row.row];
-        groupMap[rowGroup].push_back(row);
-        bestSet = -1;
-        bestCover = 0;
-        for(const int ss : row.col_covering) {
-            if(subsetToGroup[ss] == rowGroup) {
-                bestSet = -1;
-                break;
-            }
-            if(visited[ss]) continue;
-
-            elemsCover = U[rowGroup].intersectionLength(bF[ss]);
-            if(elemsCover > bestCover) {
-                bestCover = elemsCover;
-                bestSet = ss;
-            }
-        }
-
-        if(bestSet != -1) {
-            groups[rowGroup].push_back(bestSet);
-            subsetToGroup[bestSet] = rowGroup;
-            visited[bestSet] = true;
-        }
-    }
-
-    // Verify if any subset is not assigned to a group
-    for(int i=0; i<m; i++) {
-        if(visited[i] || excludedSets.check(i)) continue;
-
-        bestGroup = -1;
-        bestCover = 0;
-        for(int j=0; j<groups.size(); j++) {
-            elemsCover = U[j].intersectionLength(bF[i]);
-            if(elemsCover > bestCover) {
-                bestCover = elemsCover;
-                bestGroup = j;
-            }
-        }
-
-        if(bestGroup != -1) {
-            groups[bestGroup].push_back(i);
-            subsetToGroup[i] = bestGroup;
-        }
-    }
-
-    // Erase subsets that are not assigned to any group
-    #pragma omp parallel for
-    for(vector<RowCovering>& rowMap : groupMap) {
-        for(RowCovering& row : rowMap) {
+        int rowGroup, bestSet, bestGroup, bestCover, elemsCover;
+        // Cover each row with the best subset
+        for(const RowCovering& row : rowMap) {
             rowGroup = elemToGroup[row.row];
-            vector<int>& cols = row.col_covering;
-            cols.erase(
-                remove_if(cols.begin(), cols.end(), [&](int subsetIdx) {
-                    return subsetToGroup[subsetIdx] != rowGroup;
-                }),
-                cols.end()
-            );
+            groupMap[rowGroup].push_back(row);
+            bestSet = -1;
+            bestCover = 0;
+            for(const int ss : row.col_covering) {
+                if(subsetToGroup[ss] == rowGroup) {
+                    bestSet = -1;
+                    break;
+                }
+                if(visited[ss]) continue;
+
+                elemsCover = U[rowGroup].intersectionLength(scp->bF[ss]);
+                if(elemsCover > bestCover) {
+                    bestCover = elemsCover;
+                    bestSet = ss;
+                }
+            }
+
+            if(bestSet != -1) {
+                groups[rowGroup].push_back(bestSet);
+                subsetToGroup[bestSet] = rowGroup;
+                visited[bestSet] = true;
+            }
+        }
+
+        // Verify if any subset is not assigned to a group
+        for(int i=0; i<scp->m; i++) {
+            if(visited[i] || excludedSets.check(i)) continue;
+
+            bestGroup = -1;
+            bestCover = 0;
+            for(int j=0; j<groups.size(); j++) {
+                elemsCover = U[j].intersectionLength(scp->bF[i]);
+                if(elemsCover > bestCover) {
+                    bestCover = elemsCover;
+                    bestGroup = j;
+                }
+            }
+
+            if(bestGroup != -1) {
+                groups[bestGroup].push_back(i);
+                subsetToGroup[i] = bestGroup;
+            }
+        }
+
+        // Erase subsets that are not assigned to any group
+        #pragma omp parallel for
+        for(vector<RowCovering>& rowMap : groupMap) {
+            for(RowCovering& row : rowMap) {
+                int rowGroup = elemToGroup[row.row];
+                vector<int>& cols = row.col_covering;
+                cols.erase(
+                    remove_if(cols.begin(), cols.end(), [&](int subsetIdx) {
+                        return subsetToGroup[subsetIdx] != rowGroup;
+                    }),
+                    cols.end()
+                );
+            }
+        }
+    } else {
+        for(int i=0; i<scp->m; i++) {
+            if(excludedSets.check(i)) continue;
+            int rowGroup = -1;
+            for(int j=0; j<scp->F[i].size(); j++) {
+                if(elemToGroup[scp->F[i][j] - 1] != -1) {
+                    rowGroup = elemToGroup[scp->F[i][j] - 1];
+                    break;
+                }
+            }
+            groups[rowGroup].push_back(i);
+        }
+        for(const RowCovering& row : rowMap) {
+            groupMap[elemToGroup[row.row]].push_back(row);
         }
     }
 }
@@ -240,13 +262,13 @@ void Group::calcBestCut() {
             bestId = i;
         }
     }
-    if(CHECK) {
+    if(1) {
         printf("Best Diff: %d\n", bestDiff);
         printf("Best Id: %d\n", bestId);
     }
 
-    Set visited(nW);
-    U.resize(2, Set(nW));
+    Set visited(scp->nWX);
+    U.resize(2, Set(scp->nWX));
     #pragma omp parallel sections
     {
         #pragma omp section
