@@ -73,7 +73,7 @@ int main(int argc, char** argv) {
     Grasp alg(scp);
     double dur_apr;
     int best_card = numeric_limits<int>::max();;
-    for(int i=0; i<1; i++) {
+    for(int i=0; i<10; i++) {
         start_time = chrono::high_resolution_clock::now();
         SetCover sol = alg.search();
         end_time = chrono::high_resolution_clock::now();
