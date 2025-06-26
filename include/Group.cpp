@@ -77,7 +77,7 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
     auto start_time = chrono::high_resolution_clock::now();
     createGraph(rowMap);
     auto end_time = chrono::high_resolution_clock::now();
-    if(1) printf("Time createGraph: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time createGraph: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
     if(type) { // MST
         buildMST(rowMap.size(), edges);
         dfs(mst[0].u, -1);  
@@ -113,7 +113,7 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
             groupId++;
         }
         auto end_time = chrono::high_resolution_clock::now();
-        if(1) printf("Time union-find: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+        if(PRINT) printf("Time union-find: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
     }
 
     groups.resize(U.size());

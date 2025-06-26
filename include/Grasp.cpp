@@ -27,7 +27,7 @@ SetCover Grasp::search() {
         }
         
         auto end_time = chrono::high_resolution_clock::now();
-        if(1) printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+        if(PRINT) printf("Time: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
     }
 
     // Add unique sets (grade 1) to the solution
@@ -44,11 +44,11 @@ void Grasp::searchPerGroup(SetCover& solution) {
     auto a = chrono::high_resolution_clock::now();
     g.distributeSubsets(solution.excludedSets, solution.rowMap);
     auto b = chrono::high_resolution_clock::now();
-    if(1) printf("Time distribute: %f\n", chrono::duration_cast<chrono::microseconds>(b - a).count()/1000000.0);
+    if(PRINT) printf("Time distribute: %f\n", chrono::duration_cast<chrono::microseconds>(b - a).count()/1000000.0);
     if(PRINT) printf("Groups: %d\n", g.sizeGroups());
     if(CHECK) g.printGroups();
     auto end_time = chrono::high_resolution_clock::now();
-    if(1) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     int numGroups = g.sizeGroups();
     vector<vector<int>> groupSolutions(numGroups);
@@ -110,7 +110,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
 
     }
     end_time = chrono::high_resolution_clock::now();
-    if(1) printf("Time grasp: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time grasp: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     // copy every group sol to the original solution
     for(vector<int>& groupSol : groupSolutions) {

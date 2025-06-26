@@ -37,25 +37,25 @@ void SetCover::preprocess() {
     auto start_time = chrono::high_resolution_clock::now();
     columnDomination();
     auto end_time = chrono::high_resolution_clock::now();
-    if(1) printf("Time Column Domination: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time Column Domination: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     // Create map structure
     start_time = chrono::high_resolution_clock::now();
-    if(1) printf("Creating Row Map...\n");
+    if(PRINT) printf("Creating Row Map...\n");
     #pragma omp parallel for schedule(dynamic, 1)
     for(int i=0; i<scp->n; i++)
         rowMap[i] = RowCovering(excludedSets, scp->bF, i);
 
     sort(execution::par, rowMap.begin(), rowMap.end(), [&](RowCovering a, RowCovering b){return a.n_columns < b.n_columns;});
     end_time = chrono::high_resolution_clock::now();
-    if(1) printf("Time Create Map: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time Create Map: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     printRowMap();
     // Add uniques elements
     start_time = chrono::high_resolution_clock::now();
     rowReduction();
     end_time = chrono::high_resolution_clock::now();
-    if(1) printf("Time RowReduction: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+    if(PRINT) printf("Time RowReduction: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     printRowMap();
 
