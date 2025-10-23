@@ -9,7 +9,7 @@
 
 ## Pasos previos
 - Descomprime `test.zip`, que contiene ejemplos extraídos de la OR-Library y datasets generados mediante el archivo `generate_SC_file.py`.
-- Crea un archivo llamado results.txt en la raíz del proyecto para almacenar los resultados de los experimentos.
+- Crea un archivo llamado `results.txt` en la raíz del proyecto para almacenar los resultados de los experimentos.
 
 ## OR-Library
 Los datasets ubicados en la carpeta `test/` corresponden a instancias de la **OR-Library**, específicamente de los problemas **Set covering** y **Set partitioning**.

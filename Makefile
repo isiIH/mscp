@@ -1,6 +1,7 @@
 CPP = g++ -std=c++17
 CPPFLAGS = -O3 -g -DVERBOSE -fopenmp
 INCLUDES = -I./include/
+LDFLAGS = -ltbb
 
 SRC_DIR = ./include
 
@@ -13,7 +14,7 @@ BINS=grasp
 all: clean $(BINS)
 
 grasp: main.cpp
-	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o grasp $(SRC_MAIN)
+	@$(CPP) $(CPPFLAGS) $(INCLUDES) -o grasp $(SRC_MAIN) $(LDFLAGS)
 
 clean:
 	@echo " [CLN] Removing binary files"
