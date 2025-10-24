@@ -1,8 +1,7 @@
 test/
 *.pdf
-results.txt
 grasp
-exp.ipynb
 mscpenv/
 .vscode/
 run_test.sh
+results.txt

@@ -34,6 +34,11 @@ void SCP::readFile(const string filename) {
 }
 
 void SCP::readFileScp(const string filename) {
+    // Format:
+    // number of rows (m), number of columns (n)
+    // the cost of each column c(j),j=1,...,n
+    // for each row i (i=1,...,m): the number of columns which cover
+    // row i followed by a list of the columns which cover row i
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename + ".txt";
     ifstream file(nametxt.c_str());
@@ -80,6 +85,10 @@ void SCP::readFileScp(const string filename) {
 }
 
 void SCP::readFilePartition(const string filename) {
+//    The format of these data files is:
+//    number of rows, number of columns (n)
+//    for each column j (j=1,...,n) in turn:
+//       column cost, number of rows covered by j, list of the rows covered by j
     cout << "Reading file " << filename << "..." << endl;
     string nametxt = "test/" + filename + ".txt";
     ifstream file(nametxt.c_str());

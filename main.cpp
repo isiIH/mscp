@@ -15,7 +15,7 @@ vector<int> greedy(const SCP &scp);
 
 int main(int argc, char** argv) {
     if(argc != 3){
-		cout << "./opt <filename> <nt>" << endl;
+		cout << "./grasp <filename> <nt>" << endl;
 		exit(EXIT_FAILURE);
 	}
 

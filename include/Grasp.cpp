@@ -81,7 +81,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
             start_time = chrono::high_resolution_clock::now();
             random_device rd;
             mt19937 gen(rd() + omp_get_thread_num());
-            randSuccintSC(groupSol, false, gen);
+            randSuccintSC(groupSol, true, gen);
             end_time = chrono::high_resolution_clock::now();
             // printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), groupSol.X.size(), g.groups[ng].size(), groupSol.solution.size());
             // if(1) printf("Time randInit Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
@@ -171,8 +171,8 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     // Evaluate and Upgrade solution
     if(new_solution.size() > old_solution.size()) {
         solution.solution = old_solution;
-        improve = false;
-    } else improve = true;
+        improve = true;
+    } else improve = false;
 
 
     if(PRINT) {

@@ -8,7 +8,7 @@ public:
     Edge(int u, int v, int w) : u(u), v(v), w(w) {}
 
     bool operator<(const Edge &other) const {
-        return w > other.w; // Para prioridad tipo min-heap (Menor peso primero)
+        return w > other.w;
     }
 };
 
