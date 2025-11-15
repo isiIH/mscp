@@ -2,17 +2,19 @@
 
 Grasp::Grasp(SCP &scp): scp(scp) {}
 
+// Execute the preprocess and the GRASP metaheuristic
 SetCover Grasp::search() {
     // Preprocess
     SetCover solution(scp);
     
     if(GROUP_SEG) searchPerGroup(solution);
     else {
+        // Execute GRASP without groups
         auto start_time = chrono::high_resolution_clock::now();
-        // Initial solution
         vector<RowCovering> rowMap = solution.rowMap;
         random_device rd;
         mt19937 gen(rd());
+        // Initial solution
         randSuccintSC(solution, false, gen);
         
         if(PRINT) printf("Initial Sol. Cardinality: %d\n", solution.size());
@@ -36,23 +38,28 @@ SetCover Grasp::search() {
     return solution;
 }
 
+// Execute the GRASP metaheuristic using groups
 void Grasp::searchPerGroup(SetCover& solution) {
-    // Universe Segmentation
+    // Find groups using segmentation
     auto start_time = chrono::high_resolution_clock::now();
     g = Group(scp.n, scp);
     g.findGroups(solution.rowMap);
+
     auto a = chrono::high_resolution_clock::now();
     g.distributeSubsets(solution.excludedSets, solution.rowMap);
     auto b = chrono::high_resolution_clock::now();
+
     if(PRINT) printf("Time distribute: %f\n", chrono::duration_cast<chrono::microseconds>(b - a).count()/1000000.0);
     if(PRINT) printf("Groups: %d\n", g.sizeGroups());
     if(CHECK) g.printGroups();
     auto end_time = chrono::high_resolution_clock::now();
+
     if(PRINT) printf("Time Segmentation: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
 
     int numGroups = g.sizeGroups();
     vector<vector<int>> groupSolutions(numGroups);
 
+    // Solve each group found in parallel
     start_time = chrono::high_resolution_clock::now();
     #pragma omp parallel for
     for(int ng=0; ng < numGroups; ng++) {
@@ -73,14 +80,12 @@ void Grasp::searchPerGroup(SetCover& solution) {
             vector<RowCovering> rowMap = groupSol.rowMap;
 
             auto end_time = chrono::high_resolution_clock::now();
-
-            
             // if(1) printf("Time Preprocces Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
             
-            // Initial solution
             start_time = chrono::high_resolution_clock::now();
             random_device rd;
             mt19937 gen(rd() + omp_get_thread_num());
+            // Initial solution
             randSuccintSC(groupSol, true, gen);
             end_time = chrono::high_resolution_clock::now();
             // printf("Group %d (%d, %ld) size: %ld\n", (ng + 1), groupSol.X.size(), g.groups[ng].size(), groupSol.solution.size());
@@ -101,6 +106,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
                 }
             }
 
+            // Add solution of each group
             groupSolutions[ng] = groupSol.solution;
             end_time = chrono::high_resolution_clock::now();
             // if(1) printf("Time Group %d: %f\n", (ng+1), chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
@@ -121,6 +127,7 @@ void Grasp::searchPerGroup(SetCover& solution) {
     if(SEG_TYPE) solution.redundantSets();
 }
 
+// Local Search Phase to improve the current solution
 void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap, bool& improve, mt19937& gen) {
     // Perturbation
     int i, col;
@@ -180,6 +187,7 @@ void Grasp::updateSolution(SetCover& solution, const vector<RowCovering>& rowMap
     }
 }
 
+// Constructive Phase to create a random solution
 void Grasp::randSuccintSC(SetCover &C, const bool& improve, mt19937& gen) {
     if(CHECK) printf("------------------------------------\n");
     int function;
@@ -193,7 +201,7 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve, mt19937& gen) {
     uniform_int_distribution<int> distImprove(0, 24);
 
     while( !C.rowMap.empty() ) { // Iterate until rowMap is empty
-        function = distFunction(gen);
+        function = distFunction(gen); // Select a random function to evaluate subsets
         if(CHECK) {
             switch(function) {
                 case 0: printf("Using function (1/rowsCovered)\n"); break;
@@ -204,10 +212,10 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve, mt19937& gen) {
             }
         }
         p = 0;
-        grade = C.rowMap[p].n_columns;
+        grade = C.rowMap[p].n_columns; // Get the current minimum grade
         bestCoverage = numeric_limits<double>::max();
         
-        // Collect all the element's subsets of grade K
+        // Collect all the element's subsets of minimum grade
         while(p < C.rowMap.size() && C.rowMap[p].n_columns == grade) {
             for(int ss : C.rowMap[p].col_covering) subsets.insert(ss);
             p++;
@@ -243,6 +251,7 @@ void Grasp::randSuccintSC(SetCover &C, const bool& improve, mt19937& gen) {
         }
         
         if(!improve && distImprove(gen) == 0) {
+            // Select a random subset using a probability distribution based on the coverage
             if(CHECK) printf("random set\n");
             rand_subset = generate_canonical<double, 10>(gen);
 

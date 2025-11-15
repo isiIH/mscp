@@ -32,9 +32,9 @@ private:
     bool type; // 0:UNION-FIND, 1:MST
     UnionFind uf;
     vector<Edge> edges;
-    vector<Edge> mst;
-    vector<int> subtreeW;
-    vector<int> edgeW;
+    vector<Edge> mst; 
+    vector<int> subtreeW; // Cumulative weight of each edge if cut
+    vector<int> edgeW; // Cumulative weight of each subtree including the edge weight
     map<int, vector<pair<int, int>>> adj;
     int totalWeight = 0;
     vector<int> elemToGroup;

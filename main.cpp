@@ -14,6 +14,7 @@ using namespace std;
 vector<int> greedy(const SCP &scp);
 
 int main(int argc, char** argv) {
+
     if(argc != 3){
 		cout << "./grasp <filename> <nt>" << endl;
 		exit(EXIT_FAILURE);
@@ -62,17 +63,18 @@ int main(int argc, char** argv) {
         scp.X.print();
     }
 
-    // GREEDY-ALG
+    // GREEDY-ALGORITHM
     start_time = chrono::high_resolution_clock::now();
     vector<int> greedySol = greedy(scp);
     end_time = chrono::high_resolution_clock::now();
     auto dur_greedyExh = chrono::duration_cast<chrono::microseconds>(end_time - start_time).count();
     dur_greedyExh += dur_analyze;
 
-    // GRASP-ALG
+    // GRASP-ALGORITHM
     Grasp alg(scp);
     double dur_apr;
-    int best_card = numeric_limits<int>::max();;
+    int best_card = numeric_limits<int>::max();
+    // Perform several iterations to get the best solution
     for(int i=0; i<1; i++) {
         start_time = chrono::high_resolution_clock::now();
         SetCover sol = alg.search();
@@ -137,6 +139,8 @@ int main(int argc, char** argv) {
     return 0;
 }
 
+
+// Greedy algorithm
 vector<int> greedy(const SCP &scp) {
     int i;
     Set U(scp.X);

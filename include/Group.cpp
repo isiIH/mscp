@@ -4,14 +4,17 @@
 UnionFind::UnionFind() {}
 
 UnionFind::UnionFind(const int n) {
+    // Initialize parent and rank arrays
     parent.resize(n);
     rank.resize(n, 0);
 
+    // Each parent points to itself at first
     #pragma omp parallel for
     for(int i=0; i<n; i++)
         parent[i] = i;
 }
 
+// Find the representative of the set that contains u
 int UnionFind::find(const int u) {
     // if it is not the representative of u
     if (parent[u] != u)
@@ -19,6 +22,7 @@ int UnionFind::find(const int u) {
     return parent[u];
 }
 
+// Unite the sets that contain u and v by rank
 bool UnionFind::unite(const int u, const int v) {
     int uRoot = find(u), vRoot = find(v);
 
@@ -41,13 +45,14 @@ bool UnionFind::unite(const int u, const int v) {
 Group::Group() {}
 
 Group::Group(const int n, SCP &scp) : scp(&scp), type(SEG_TYPE) /*0:UNION-FIND, 1:MST*/ {
-    uf = UnionFind(n);
-    elemToGroup.resize(n, -1);
+    uf = UnionFind(n); // Initialize Union-Find
+    elemToGroup.resize(n, -1); // Map elements to the group they belong
     if(type) { // MST
         subtreeW.resize(n);
     }
 }
 
+// Build the Graph that maps the relationships between rows using countIntersection
 void Group::createGraph(const vector<RowCovering>& rowMap) {
     int rowSize = rowMap.size();
     #pragma omp parallel for
@@ -68,27 +73,31 @@ void Group::createGraph(const vector<RowCovering>& rowMap) {
     }
 }
 
+// Find groups using UNION-FIND or MST
 void Group::findGroups(const vector<RowCovering>& rowMap) {
     if(PRINT) {
         cout << "------------------------" << endl;
         cout << "Executing FindGroups..." << endl;
         cout << "------------------------" << endl;
     }
+
     auto start_time = chrono::high_resolution_clock::now();
     createGraph(rowMap);
     auto end_time = chrono::high_resolution_clock::now();
     if(PRINT) printf("Time createGraph: %f\n", chrono::duration_cast<chrono::microseconds>(end_time - start_time).count()/1000000.0);
+
     if(type) { // MST
-        buildMST(rowMap.size(), edges);
-        dfs(mst[0].u, -1);  
+        buildMST(rowMap.size(), edges); // Build Maximum Spanning Tree
+        dfs(mst[0].u, -1); // Calculate subtree weights
         if(CHECK) {
             printf("Total edges: %ld\n", edges.size());
             printf("Total Weight: %d\n", totalWeight);
         }
-        calcBestCut();
+        calcBestCut(); // Calculate the best cut to form groups
         
     } else { // UNION-FIND
         auto start_time = chrono::high_resolution_clock::now();
+        // Unite nodes based on the edges
         for(const Edge& e : edges) {
             // printf("Edge: %d %d %d\n", e.u, e.v, e.w);
             uf.unite(e.u, e.v);
@@ -96,12 +105,14 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
 
         unordered_map<int, vector<int>> group_map;
 
+        // Map each row to its group representative
         for (const RowCovering& e : rowMap) {
-            int root = uf.find(e.row);
+            int root = uf.find(e.row); 
             // printf("root: %d, i: %d\n", root, i);
             group_map[root].push_back(e.row);
         }
 
+        // Represent the universe of each group and map elements to their group
         int groupId = 0;
         for (auto &entry : group_map) {
             Set u(scp->nWX);
@@ -120,8 +131,9 @@ void Group::findGroups(const vector<RowCovering>& rowMap) {
     groupMap.resize(U.size());
 }
 
+// Distribute subsets to the groups already formed
 void Group::distributeSubsets(const Set& excludedSets, const vector<RowCovering>& rowMap) {
-    if(type) {
+    if(type) { // MST
         subsetToGroup.resize(scp->m, -1);
         vector<bool> visited(scp->m, false);
 
@@ -187,7 +199,8 @@ void Group::distributeSubsets(const Set& excludedSets, const vector<RowCovering>
                 );
             }
         }
-    } else {
+    } else { // UNION-FIND
+        // Distribute subsets based on the elemToGroup mapping
         for(int i=0; i<scp->m; i++) {
             if(excludedSets.check(i)) continue;
             int rowGroup = -1;
@@ -199,16 +212,19 @@ void Group::distributeSubsets(const Set& excludedSets, const vector<RowCovering>
             }
             groups[rowGroup].push_back(i);
         }
+        // Map each row to its group representative
         for(const RowCovering& row : rowMap) {
             groupMap[elemToGroup[row.row]].push_back(row);
         }
     }
 }
 
+// Return the number of groups found
 int Group::sizeGroups() {
     return U.size();
 }
 
+// Print groups found
 void Group::printGroups() {
     for(int i=0; i<groups.size(); i++) {
         printf("Group %d: \n", i);
@@ -221,6 +237,7 @@ void Group::printGroups() {
     }
 }
 
+// Build Maximum Spanning Tree using Union-Find
 void Group::buildMST(const int n, vector<Edge>& edges) {
     // Sort edges in descending order
     sort(execution::par, edges.begin(), edges.end());
@@ -242,6 +259,7 @@ void Group::buildMST(const int n, vector<Edge>& edges) {
     edgeW.resize(mst.size());
 }
 
+// Depth-First Search to calculate subtree weights
 void Group::dfs(int node, int parent) {
     subtreeW[node] = 0;
     for(auto& [neighbor, uid] : adj[node]) {
@@ -252,6 +270,7 @@ void Group::dfs(int node, int parent) {
     }
 }
 
+// Calculate the best cut in the MST to form two groups
 void Group::calcBestCut() {
     int bestId, diff, bestDiff = numeric_limits<int>::max();
 
@@ -262,11 +281,12 @@ void Group::calcBestCut() {
             bestId = i;
         }
     }
-    if(1) {
+    if(CHECK) {
         printf("Best Diff: %d\n", bestDiff);
         printf("Best Id: %d\n", bestId);
     }
 
+    // Identify the universe of each group after the best cut
     Set visited(scp->nWX);
     U.resize(2, Set(scp->nWX));
     #pragma omp parallel sections
@@ -279,6 +299,7 @@ void Group::calcBestCut() {
     }
 }
 
+// Collect elements of a group using DFS
 void Group::collectGroup(const int u, Set& visited, const int groupId, const int bestId) {
     visited.push_back(u);
     U[groupId].push_back(u);

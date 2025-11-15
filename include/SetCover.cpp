@@ -2,6 +2,7 @@
 
 SetCover::SetCover() {};
 
+// Initialize a solution or "SetCover" and execute preprocess
 SetCover::SetCover(SCP &scp) : scp(&scp) {
     excludedSets = Set(scp.nWF);
     X = Set(scp.X);
@@ -26,6 +27,7 @@ SetCover& SetCover::operator=(const SetCover& other) {
     return *this;
 }
 
+// Execute preprocess: Column Domination and Row Reduction
 void SetCover::preprocess() {
     if(PRINT) {
         cout << "------------------------" << endl;
@@ -66,6 +68,7 @@ void SetCover::preprocess() {
     }
 }
 
+// Execute Row Reduction to add unique subsets to the solution
 void SetCover::rowReduction() {
     if(PRINT) printf("Executing Row Reduction...\n");
     int setIndex;
@@ -88,6 +91,7 @@ void SetCover::rowReduction() {
     }
 }
 
+// Execute Column Domination to exclude dominated subsets
 void SetCover::columnDomination() {
     if(PRINT) printf("Executing Column Domination...\n");
 
@@ -110,6 +114,7 @@ void SetCover::columnDomination() {
             pair<int, int> setA = indexedSubsets[i];
             int setB;
 
+            // Check if setA is dominated by any next subset
             for(int j=i+1; j < scp->m; j++) {
                 setB = indexedSubsets[j].first;
 
@@ -128,10 +133,10 @@ void SetCover::columnDomination() {
     }
 }
 
+// Remove all the subset's elements from the rowMap
 void SetCover::updateRowMap(const int setIndex) {
     int nRows = rowMap.size();
     int aux = 0, aux2;
-    // Remove all the subset's elements from the rowMap
     for(int i=0; i<nRows; i++) {
         aux2 = i - aux;
         if(scp->bF[setIndex].check(rowMap[aux2].row)) {
@@ -143,15 +148,18 @@ void SetCover::updateRowMap(const int setIndex) {
     U.substract(scp->bF[setIndex]);
 }
 
+// Add a subset to the solution and update the rowMap and U
 void SetCover::push_back(const int s) {
     solution.push_back(s);
     updateRowMap(s);
 }
 
+// Remove a subset from the solution
 void SetCover::erase(const int s) {
     solution.erase(solution.begin() + s);
 }
 
+// Compute the union of all subsets in the solution
 Set SetCover::unionSets() {
     Set C(scp->nWX);
     for(const int idS : solution) {
@@ -161,6 +169,7 @@ Set SetCover::unionSets() {
     return C;
 }
 
+// Check if all elements in X are covered
 bool SetCover::isCovered() {
     Set coveredElements = unionSets();
     
@@ -170,6 +179,7 @@ bool SetCover::isCovered() {
     return true;
 }
 
+// Remove redundant subsets from the solution
 void SetCover::redundantSets() {
     vector<int> elemCover(scp->n, 0);
     for(int ss : solution) {
@@ -199,10 +209,12 @@ void SetCover::redundantSets() {
     }
 }
 
+// Return the number of subsets in the solution
 int SetCover::size() {
     return solution.size();
 }
 
+// Print the rowMap structure
 void SetCover::printRowMap() {
     if(CHECK) {
         for(RowCovering row : rowMap) {

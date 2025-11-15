@@ -6,6 +6,7 @@ RowCovering::RowCovering(const Set &ignSets, const vector<Set> &bF, const int ro
     createRowCovering(ignSets, bF);
 }
 
+// Identify columns that cover the row
 void RowCovering::createRowCovering(const Set &ignSets, const vector<Set> &bF) {
     for(int i=0; i<bF.size(); i++) {
         if(!ignSets.check(i) && bF[i].check(row)) { // check if column i cover the row
@@ -15,6 +16,7 @@ void RowCovering::createRowCovering(const Set &ignSets, const vector<Set> &bF) {
     }
 }
 
+// Count the number of common subsets between two rows
 int RowCovering::countIntersection(const vector<int>& B) const {
     int i = 0, j = 0, count = 0;
     int sizeA = col_covering.size(), sizeB = B.size();

@@ -120,6 +120,7 @@ void SCP::readFilePartition(const string filename) {
     file.close();
 }
 
+// Analyze F to create the universe set X and the bitset representation bF of subsets
 void SCP::analyzeF() {
     nWX = n/(sizeof(ulong)*8);
     if (n%(sizeof(ulong)*8)>0) nWX++;
