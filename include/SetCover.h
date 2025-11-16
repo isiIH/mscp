@@ -15,14 +15,15 @@ using namespace std;
 
 class SetCover {
 public:
-    vector<int> solution;
-    Set X;
-    Set U;
-    vector<RowCovering> rowMap;
-    SCP* scp;
+    vector<int> solution; // Stores the indices of the subsets included in the solution.
+    Set X; // Universe
+    Set U; // Residual Universe (uncovered elements)
+    vector<RowCovering> rowMap; // Maps each element to the subsets that cover it
+    SCP* scp; // Pointer to the SCP problem instance handler
 
-    vector<int> uniqueSets;
-    Set excludedSets;
+    // Preprocess
+    vector<int> uniqueSets; // Stores essential sets (those covering grade-1 elements)
+    Set excludedSets; // Stores subsets found to be dominated by others
 
     SetCover();
     SetCover(SCP &scp);
