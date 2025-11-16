@@ -32,3 +32,22 @@ La arquitectura del código está modularizada para separar la representación d
    - Otras funciones desarrolladas son la eliminación de subconjuntos de la solución, la obtención de un Set con la unión de todos los subconjuntos dentro de la solución, el chequeo de si se forma un set cover con los subconjuntos actuales, la obtención del número de subconjuntos de la solución, y la función para remover subconjuntos redundantes.
 
 ## Estructuras para el algoritmo principal y segmentación
+
+1. Grasp:
+   - La ejecución del algoritmo propuesto se centraliza en la función `search`. Dependiendo de la configuración seleccionada, esta función ejecutará `searchPerGroup` (para el GRASP con segmentación, Algoritmo 6 de la tesis) o el GRASP tradicional sin segmentación (Algoritmo 2 de la tesis).
+   - Al finalizar cualquiera de los dos métodos de búsqueda, los subconjuntos únicos (uniqueSets) que fueron identificados y reservados durante la fase de preprocesamiento se añaden a la solución final.
+   - El método `searchPerGroup` funciona de la siguiente manera:
+     1. Primero, se realiza la segmentación del universo llamando a la función `findGroups`, utilizando la heurística de Union-Find o la de MST según se haya configurado.
+     2. Una vez definidos los subuniversos (grupos), la función `distributeSubsets` se encarga de asignar cada subconjunto de la instancia original al grupo con el que tenga mayor relación.
+     3. Cada subproblema se resuelve en forma paralela. Para ello, la información del grupo es copiada a su propia instancia de solución o SetCover.
+     4. Cada solución parcial encontrada es unida a la solución global. Si se utilizó la segmentación basada en MST, se ejecuta una verificación final para remover subconjuntos redundantes. Esto es necesario porque la división del universo por MST puede generar solapamiento entre subproblemas, a diferencia de Union-Find.
+   - El método `updateSolution` representa el núcleo de la fase de búsqueda local iterativa del algoritmo GRASP, correspondiente a las líneas 10-18 del Algoritmo 2.
+   - El método `randSuccinctSC` implementa el Algoritmo 1 (RANDSUCCINCTSC). Recordar que si no se encuentran mejoras en la solución (IMPROVE == False), en lugar de escoger al subconjunto que cubra la mayor cantidad de elementos restantes, el subconjunto se escoge por probabilidad en base a su cobertura para favorecer la exploración y diversidad.
+
+2. Group:
+   - Implementa las heurísticas clave para la segmentación del universo, ya sea a través de Union-Find o Maximum Spanning Tree (MST), dependiendo de la configuración utilizada.
+   - La heurística Union-Find tiene su clase propia dentro del archivo. Para esta clase se crean los métodos find y unite descritas en el Algoritmo 3 y 4 de la tesis.
+   - Por otro lado, la clase Group ejecuta la segmentación de grupos para ambas heurísticas dependiendo de la configuración utilizada. La función principal corresponde a `findGroups`, el cual ejecuta los siguientes pasos:
+     1. Primero, se crea el grafo de elementos a partir del método `createGraph`, el cual identifica las relaciones entre elementos a partir del método `countIntersection` descrito en la clase RowCovering.
+     2. Los siguientes pasos dependen de la heurística utilizada. Para el caso del MST, se realizan los pasos descritos en el Algoritmo 5 de la tesis. En el caso de Union-Find, por cada relación de cobertura encontrada entre elementos, se realiza la función `unite`. Posteriormente, para definir los universos de cada grupo (componentes disjuntas), se mapea a cada elemento del universo con su representante utilizando la función `find`.
+     3. Por último, se procede con el método `distributeSubsets`. Este método también depende de la heurística. Para el MST, la distribución es más compleja debido al posible solapamiento. Primero, se asegura que el universo de cada grupo sea cubierto, asignando a los subconjuntos que cubran más elementos del grupo. Una vez cubiertos todos los elementos, se terminan de agregar los subconjuntos sobrantes en una segunda ronda. Por otro lado, la distribución de Union-Find es más sencilla porque no hay solapamiento entre grupos. Cada subconjunto se agrega al grupo al que pertenece uno de los elementos que cubre.
